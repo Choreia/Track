@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Choreia Track — プロジェクト進捗管理</title>
+<meta name="description" content="タスク管理・マイルストーン・Wiki・メンバーロール管理をスプレッドシートで。AIがPMとしてプロジェクトをアドバイス。">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Track">
+<meta name="theme-color" content="#1a5a8a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#f5f7fa;color:#1a2430;line-height:1.6;min-height:100vh;-webkit-tap-highlight-color:transparent}
+.container{max-width:960px;margin:0 auto;padding:16px}
+@media(max-width:960px){.container{padding:12px;padding-bottom:100px}}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.header h1{font-size:1.3em;display:flex;align-items:center;gap:6px}.header h1 span{color:#1a5a8a}
+.auth-area{display:flex;align-items:center;gap:8px;font-size:.85em;position:relative}
+.auth-area img{width:32px;height:32px;border-radius:50%;cursor:pointer}
+.btn-google{display:inline-flex;align-items:center;gap:8px;padding:8px 16px 8px 12px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;box-shadow:0 1px 2px rgba(60,64,67,.1)}
+.btn-google:active{background:#eee}
+.btn-google svg{flex-shrink:0;width:18px;height:18px}
+.user-menu{display:none;position:absolute;top:44px;right:0;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.12);padding:12px 16px;min-width:240px;z-index:100;border:1px solid #dde4ea}
+.user-menu.open{display:block}
+.user-menu .user-menu-name{font-weight:600;font-size:.9em;margin-bottom:2px}
+.user-menu .user-menu-email{font-size:.75em;color:#5a6a7a;margin-bottom:10px;word-break:break-all}
+.user-menu hr{border:none;border-top:1px solid #dde4ea;margin:8px 0}
+.user-menu-item{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 4px;font-size:.85em;cursor:pointer;color:#1a2430;font-family:inherit;border-radius:6px}
+.user-menu-item:hover{background:#f0f4f8}
+.card{background:#fff;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(26,36,48,.06)}
+.card h2{font-size:1.05em;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #1a5a8a;display:flex;align-items:center;gap:8px}
+.tabs{display:flex;gap:0;margin-bottom:16px;background:#fff;border-radius:12px;padding:4px;box-shadow:0 1px 4px rgba(26,36,48,.06);overflow-x:auto}
+.tab{flex:1;padding:10px 6px;text-align:center;border:none;background:none;border-radius:8px;font-size:.82em;font-weight:600;font-family:inherit;cursor:pointer;color:#5a6a7a;transition:all .2s;white-space:nowrap;min-width:0}
+.tab.active{background:#1a5a8a;color:#fff}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:.8em;font-weight:600;color:#3a4a5a;margin-bottom:4px}
+.form-input{width:100%;padding:10px 14px;border:2px solid #d0d8e0;border-radius:10px;font-size:.95em;font-family:inherit;background:#fff;transition:border-color .2s}
+.form-input:focus{border-color:#1a5a8a;outline:none}
+select.form-input{appearance:auto}
+textarea.form-input{resize:vertical;min-height:80px}
+.btn-primary{display:block;width:100%;padding:14px;border:none;border-radius:14px;font-size:1em;font-weight:700;font-family:inherit;color:#fff;background:linear-gradient(135deg,#1a5a8a,#0d3a5a);cursor:pointer;box-shadow:0 2px 8px rgba(26,90,138,.25)}
+.btn-primary:active:not(:disabled){opacity:.85}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border:none;border-radius:10px;font-size:.9em;font-weight:600;font-family:inherit;background:#e0e8f0;color:#1a2430;cursor:pointer}
+.btn-secondary:active{background:#d0d8e0}
+.btn-icon{background:none;border:none;cursor:pointer;font-size:1em;padding:6px 8px;border-radius:8px;color:#5a6a7a;transition:background .15s}
+.btn-icon:hover{background:#e0e8f0}
+.btn-danger{background:#fde8e8;color:#c0392b;border:none;padding:6px 12px;border-radius:8px;font-size:.8em;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-danger:active{background:#f5c6c6}
+.btn-small{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:none;border-radius:8px;font-size:.8em;font-weight:600;cursor:pointer;font-family:inherit;background:#1a5a8a;color:#fff}
+.btn-small:active{opacity:.85}
+.btn-text{background:none;border:none;color:#1a5a8a;font-size:.85em;font-weight:600;cursor:pointer;padding:4px 0;font-family:inherit}
+.btn-share{display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border:1px solid #d0d8e0;border-radius:8px;background:#fff;cursor:pointer;font-size:.78em;font-weight:500;color:#3a4a5a;font-family:inherit}
+.btn-share:active{background:#f0f4f8}
+.data-table{width:100%;border-collapse:collapse;font-size:.85em}
+.data-table th{text-align:left;padding:10px 12px;background:#f0f4f8;color:#3a4a5a;font-weight:600;font-size:.8em;border-bottom:2px solid #d0d8e0;white-space:nowrap}
+.data-table td{padding:10px 12px;border-bottom:1px solid #e0e8f0;vertical-align:top}
+.data-table tr{cursor:pointer;transition:background .15s}
+.data-table tr:hover{background:#f5f8fb}
+.status-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.75em;font-weight:600;white-space:nowrap}
+.priority-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+.priority-dot.high{background:#dc2626}.priority-dot.medium{background:#d97706}.priority-dot.low{background:#2563eb}
+.kanban{display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;min-height:300px}
+.kanban-col{min-width:220px;flex:1;background:#f0f4f8;border-radius:12px;padding:12px}
+.kanban-col h3{font-size:.8em;color:#3a4a5a;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.kanban-col h3 .count{background:#d0d8e0;padding:2px 8px;border-radius:10px;font-size:.85em}
+.kanban-card{background:#fff;border-radius:10px;padding:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer;transition:transform .1s;border-left:3px solid transparent}
+.kanban-card:active{transform:scale(.98)}
+.kanban-card .card-title{font-weight:600;font-size:.9em;margin-bottom:4px}
+.kanban-card .card-meta{font-size:.75em;color:#5a6a7a}
+.kanban-card.high{border-left-color:#dc2626}.kanban-card.medium{border-left-color:#d97706}.kanban-card.low{border-left-color:#2563eb}
+.progress-bar{height:8px;background:#e0e8f0;border-radius:4px;overflow:hidden;margin-top:6px}
+.progress-bar .fill{height:100%;background:linear-gradient(90deg,#1a5a8a,#2d8ac4);border-radius:4px;transition:width .3s}
+.milestone-card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer;transition:transform .1s}
+.milestone-card:active{transform:scale(.99)}
+.milestone-card .ms-title{font-weight:700;font-size:1em;margin-bottom:4px}
+.milestone-card .ms-meta{font-size:.8em;color:#5a6a7a;margin-bottom:8px}
+.milestone-card .ms-stats{display:flex;gap:16px;font-size:.8em;color:#3a4a5a;flex-wrap:wrap}
+.wiki-list{list-style:none}
+.wiki-item{padding:12px 16px;border-bottom:1px solid #e0e8f0;cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:12px}
+.wiki-item:hover{background:#f5f8fb}
+.wiki-item .wiki-icon{font-size:1.3em;flex-shrink:0}
+.wiki-item .wiki-title{font-weight:600;font-size:.9em}
+.wiki-item .wiki-meta{font-size:.75em;color:#5a6a7a;margin-top:2px}
+.wiki-category{display:inline-block;padding:2px 8px;border-radius:8px;font-size:.7em;font-weight:600;background:#e0e8f0;color:#3a4a5a;margin-left:8px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;justify-content:center;align-items:flex-start;padding:40px 16px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:640px;box-shadow:0 8px 30px rgba(0,0,0,.15);max-height:calc(100vh - 80px);overflow-y:auto}
+.modal h2{font-size:1.1em;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a2430;color:#fff;padding:12px 24px;border-radius:12px;font-size:.85em;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+.welcome-view{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px}
+.welcome-view h2{font-size:1.5em;margin-bottom:8px;color:#1a5a8a}
+.welcome-view p{color:#5a6a7a;margin-bottom:24px;max-width:400px}
+.welcome-view .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:32px;max-width:600px;width:100%}
+.welcome-view .feature{background:#fff;border-radius:12px;padding:16px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.welcome-view .feature .icon{font-size:1.8em;margin-bottom:6px}
+.welcome-view .feature .label{font-size:.8em;font-weight:600;color:#3a4a5a}
+.setup-view{max-width:500px;margin:40px auto}
+.drive-list{list-style:none}
+.drive-item{padding:12px 16px;border-bottom:1px solid #e0e8f0;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .15s}
+.drive-item:hover{background:#f0f4f8}
+.folder-breadcrumb{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;font-size:.85em}
+.folder-breadcrumb button{background:none;border:none;color:#1a5a8a;cursor:pointer;font-family:inherit;font-weight:600;padding:2px 4px;border-radius:4px}
+.folder-breadcrumb button:hover{background:#e0e8f0}
+.folder-breadcrumb span{color:#5a6a7a}
+.view-toggle{display:flex;border:2px solid #d0d8e0;border-radius:8px;overflow:hidden}
+.view-toggle button{padding:6px 12px;border:none;background:#fff;cursor:pointer;font-size:.8em;font-family:inherit;color:#5a6a7a}
+.view-toggle button.active{background:#1a5a8a;color:#fff}
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.loading{text-align:center;padding:40px;color:#5a6a7a}
+.spinner{display:inline-block;width:24px;height:24px;border:3px solid #d0d8e0;border-top-color:#1a5a8a;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:40px 20px;color:#5a6a7a}
+.empty-state .icon{font-size:2em;margin-bottom:8px}
+.empty-state p{margin-bottom:16px}
+
+/* Member / Role */
+.member-card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);display:flex;gap:16px;align-items:flex-start;cursor:pointer;transition:transform .1s}
+.member-card:active{transform:scale(.99)}
+.member-avatar{width:48px;height:48px;border-radius:50%;background:#e0e8f0;display:flex;align-items:center;justify-content:center;font-size:1.3em;flex-shrink:0;font-weight:700;color:#1a5a8a}
+.member-info{flex:1;min-width:0}
+.member-name{font-weight:700;font-size:.95em}
+.member-role{font-size:.8em;color:#5a6a7a;margin-top:2px}
+.role-tag{display:inline-block;padding:2px 8px;border-radius:8px;font-size:.7em;font-weight:600;margin-right:4px;margin-top:4px}
+.member-stats{display:flex;gap:12px;margin-top:8px;font-size:.75em;color:#3a4a5a}
+.member-stats .stat{display:flex;align-items:center;gap:4px}
+.role-score{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:8px;font-size:.75em;font-weight:600}
+.role-score.good{background:#d1fae5;color:#059669}
+.role-score.warn{background:#fef3c7;color:#d97706}
+.role-score.bad{background:#fde8e8;color:#dc2626}
+
+/* AI Advisor */
+.ai-card{background:linear-gradient(135deg,#f0f4ff,#e8f0ff);border:1px solid #c8d8f0;border-radius:16px;padding:20px;margin-bottom:16px}
+.ai-card h2{border-bottom-color:#1a5a8a;color:#1a3a6a}
+.ai-response{white-space:pre-wrap;font-size:.88em;line-height:1.7}
+.ai-response h3{margin:12px 0 6px;font-size:1em}
+.ai-response ul{margin:4px 0 8px 16px}
+.ai-response li{margin:2px 0}
+.ai-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border:none;border-radius:10px;font-size:.9em;font-weight:600;font-family:inherit;background:linear-gradient(135deg,#1a5a8a,#2d6aaa);color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(26,90,138,.2)}
+.ai-btn:active{opacity:.85}
+.ai-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Wiki rendered */
+.wiki-rendered h1{font-size:1.4em;border-bottom:2px solid #e0e8f0;padding-bottom:6px;margin:20px 0 10px}
+.wiki-rendered h2{font-size:1.2em;border-bottom:1px solid #e0e8f0;padding-bottom:4px;margin:16px 0 8px}
+.wiki-rendered h3{font-size:1.05em;margin:12px 0 6px}
+.wiki-rendered p{margin:8px 0}
+.wiki-rendered ul,.wiki-rendered ol{margin:8px 0 8px 20px}
+.wiki-rendered li{margin:4px 0}
+.wiki-rendered code{background:#f0f4f8;padding:2px 6px;border-radius:4px;font-size:.9em}
+.wiki-rendered pre{background:#f0f4f8;padding:12px 16px;border-radius:8px;overflow-x:auto;margin:8px 0}
+.wiki-rendered pre code{background:none;padding:0}
+.wiki-rendered blockquote{border-left:3px solid #1a5a8a;padding-left:12px;color:#5a6a7a;margin:8px 0}
+.wiki-rendered a{color:#1a5a8a}
+.wiki-rendered table{border-collapse:collapse;margin:8px 0;width:100%}
+.wiki-rendered th,.wiki-rendered td{border:1px solid #d0d8e0;padding:6px 10px;text-align:left;font-size:.9em}
+.wiki-rendered th{background:#f0f4f8}
+
+/* Meeting input */
+.meeting-input{border:2px dashed #c0d0e0;border-radius:12px;padding:20px;margin-bottom:16px;background:#fafcfe;text-align:center}
+.meeting-input textarea{min-height:150px;margin-top:12px}
+
+@media(max-width:600px){
+  .kanban-col{min-width:180px}
+  .modal{padding:16px}
+  .member-card{flex-direction:column;align-items:center;text-align:center}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1><span>Choreia</span> Track</h1>
+    <div class="auth-area" id="auth-area">
+      <img id="user-avatar" src="" alt="" style="display:none" onclick="toggleUserMenu()">
+      <div class="user-menu" id="user-menu">
+        <div class="user-menu-name" id="user-menu-name"></div>
+        <div class="user-menu-email" id="user-menu-email"></div>
+        <hr>
+        <button class="user-menu-item" onclick="showSettings()">設定</button>
+        <button class="user-menu-item" onclick="handleSignOut()">ログアウト</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Welcome -->
+  <div id="view-welcome" style="display:none">
+    <div class="welcome-view">
+      <h2>プロジェクトをトラッキング</h2>
+      <p>タスク・マイルストーン・Wiki・メンバー管理を<br>Googleスプレッドシートで。AIがPMとしてアドバイス。</p>
+      <div class="features">
+        <div class="feature"><div class="icon">✅</div><div class="label">タスク管理</div></div>
+        <div class="feature"><div class="icon">🎯</div><div class="label">マイルストーン</div></div>
+        <div class="feature"><div class="icon">📝</div><div class="label">Wiki</div></div>
+        <div class="feature"><div class="icon">👥</div><div class="label">ロール管理</div></div>
+        <div class="feature"><div class="icon">🤖</div><div class="label">AI PM</div></div>
+        <div class="feature"><div class="icon">🗓️</div><div class="label">会議→自動登録</div></div>
+      </div>
+      <button class="btn-google" onclick="handleSignIn()">
+        <svg viewBox="0 0 18 18" width="18" height="18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.26c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z"/></svg>
+        Googleでログインして始める
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="view-loading" style="display:none"><div class="loading"><div class="spinner"></div><p style="margin-top:12px">読み込み中...</p></div></div>
+
+  <!-- Setup -->
+  <div id="view-setup" style="display:none">
+    <div class="setup-view"><div class="card">
+      <h2>初期設定</h2>
+      <p style="font-size:.9em;color:#5a6a7a;margin-bottom:16px">データを保存する共有ドライブとフォルダを選択してください。</p>
+      <div id="setup-step-drive">
+        <div class="form-group"><label>共有ドライブを選択</label></div>
+        <ul class="drive-list" id="drive-list"></ul>
+        <div style="margin-top:12px"><button class="btn-text" onclick="selectMyDrive()">マイドライブを使う</button></div>
+      </div>
+      <div id="setup-step-folder" style="display:none">
+        <div class="form-group"><label>フォルダを選択</label></div>
+        <div class="folder-breadcrumb" id="folder-breadcrumb"></div>
+        <ul class="drive-list" id="folder-list"></ul>
+        <div style="margin-top:12px"><button class="btn-secondary" onclick="selectThisFolder()">このフォルダに作成</button></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- Main -->
+  <div id="view-main" style="display:none">
+    <div id="project-bar" style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:#e0e8f0;border-radius:12px;margin-bottom:16px;font-size:.85em">
+      <span style="font-size:1.2em">📋</span>
+      <div style="flex:1">
+        <div style="font-size:.75em;color:#5a6a7a">プロジェクト</div>
+        <div style="font-weight:600;color:#1a2430" id="project-name">-</div>
+      </div>
+      <button class="btn-share" onclick="copyShareUrl()">🔗 共有URL</button>
+    </div>
+
+    <div class="tabs" id="main-tabs">
+      <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">ダッシュボード</button>
+      <button class="tab" data-tab="tasks" onclick="switchTab('tasks')">タスク</button>
+      <button class="tab" data-tab="milestones" onclick="switchTab('milestones')">マイルストーン</button>
+      <button class="tab" data-tab="wiki" onclick="switchTab('wiki')">Wiki</button>
+      <button class="tab" data-tab="members" onclick="switchTab('members')">メンバー</button>
+      <button class="tab" data-tab="ai" onclick="switchTab('ai')">AI PM</button>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="panel-dashboard">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:16px" id="dashboard-stats"></div>
+      <div class="card"><h2>マイルストーン進捗</h2><div id="dashboard-milestones"></div></div>
+      <div class="card"><h2>メンバー稼働状況</h2><div id="dashboard-members"></div></div>
+      <div class="card"><h2>最近の更新</h2><div id="dashboard-recent"></div></div>
+    </div>
+
+    <!-- Tasks -->
+    <div id="panel-tasks" style="display:none">
+      <div class="toolbar">
+        <input class="form-input" type="text" placeholder="タスクを検索..." id="task-search" oninput="renderTasks()" style="flex:1;margin-bottom:0">
+        <select class="form-input" style="width:auto;padding:8px 10px" id="task-milestone-filter" onchange="renderTasks()"><option value="">全MS</option></select>
+        <select class="form-input" style="width:auto;padding:8px 10px" id="task-assignee-filter" onchange="renderTasks()"><option value="">全担当</option></select>
+        <div class="view-toggle">
+          <button class="active" id="btn-view-kanban" onclick="setTaskView('kanban')">カンバン</button>
+          <button id="btn-view-list" onclick="setTaskView('list')">リスト</button>
+        </div>
+        <button class="btn-small" onclick="openTaskModal()">+ 追加</button>
+      </div>
+      <div id="tasks-kanban"></div>
+      <div id="tasks-list" style="display:none"></div>
+    </div>
+
+    <!-- Milestones -->
+    <div id="panel-milestones" style="display:none">
+      <div class="toolbar">
+        <input class="form-input" type="text" placeholder="検索..." id="ms-search" oninput="renderMilestones()" style="flex:1;margin-bottom:0">
+        <button class="btn-small" onclick="openMilestoneModal()">+ 追加</button>
+      </div>
+      <div id="milestones-container"></div>
+    </div>
+
+    <!-- Wiki -->
+    <div id="panel-wiki" style="display:none">
+      <div class="toolbar" id="wiki-toolbar">
+        <input class="form-input" type="text" placeholder="Wikiを検索..." id="wiki-search" oninput="renderWikiList()" style="flex:1;margin-bottom:0">
+        <select class="form-input" style="width:auto;padding:8px 10px" id="wiki-category-filter" onchange="renderWikiList()"><option value="">全カテゴリ</option></select>
+        <button class="btn-small" onclick="openWikiModal()">+ 新規</button>
+      </div>
+      <div id="wiki-list-view"><ul class="wiki-list" id="wiki-list"></ul></div>
+      <div id="wiki-detail-view" style="display:none">
+        <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <button class="btn-text" onclick="closeWikiDetail()">&larr; 一覧</button>
+          <div style="flex:1"></div>
+          <button class="btn-share" onclick="copyWikiShareUrl()">🔗 共有</button>
+          <button class="btn-small" onclick="editCurrentWiki()">編集</button>
+          <button class="btn-danger" onclick="deleteCurrentWiki()">削除</button>
+        </div>
+        <div class="card" id="wiki-detail-content"></div>
+      </div>
+    </div>
+
+    <!-- Members -->
+    <div id="panel-members" style="display:none">
+      <div class="toolbar">
+        <input class="form-input" type="text" placeholder="メンバー検索..." id="member-search" oninput="renderMembers()" style="flex:1;margin-bottom:0">
+        <button class="btn-small" onclick="openMemberModal()">+ 追加</button>
+      </div>
+      <div id="members-container"></div>
+    </div>
+
+    <!-- AI PM -->
+    <div id="panel-ai" style="display:none">
+      <!-- Meeting Summary Input -->
+      <div class="card">
+        <h2>🗓️ 会議メモ → 自動登録</h2>
+        <p style="font-size:.85em;color:#5a6a7a;margin-bottom:12px">会議のメモや議事録を貼り付けると、Geminiがサマリ化し、タスク・Wikiを自動登録します。</p>
+        <textarea class="form-input" id="meeting-raw-input" rows="8" placeholder="会議のメモ、議事録、チャットログなどを貼り付けてください...&#10;&#10;例：&#10;・田中：API設計は来週までに完了させる&#10;・佐藤：テスト環境のセットアップを担当&#10;・決定事項：リリースは4月末に変更"></textarea>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="ai-btn" onclick="processMeetingNotes()" id="btn-process-meeting">🤖 解析して自動登録</button>
+          <label style="display:flex;align-items:center;gap:4px;font-size:.8em;color:#5a6a7a">
+            <input type="checkbox" id="meeting-auto-register" checked> タスク・Wikiに自動登録
+          </label>
+        </div>
+        <div id="meeting-result" style="display:none;margin-top:16px"></div>
+      </div>
+
+      <!-- PM Advisor -->
+      <div class="ai-card">
+        <h2>🤖 AI PMアドバイザー</h2>
+        <p style="font-size:.85em;color:#5a6a7a;margin-bottom:12px">プロジェクト全体をGeminiが分析し、PMの視点でアドバイスします。</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <button class="ai-btn" onclick="runAiAdvisor('health')">📊 プロジェクト健全性</button>
+          <button class="ai-btn" onclick="runAiAdvisor('roles')">👥 ロール不足分析</button>
+          <button class="ai-btn" onclick="runAiAdvisor('risks')">⚠️ リスク分析</button>
+          <button class="ai-btn" onclick="runAiAdvisor('next')">📋 次のアクション提案</button>
+        </div>
+        <div id="ai-advisor-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Task Modal -->
+<div class="modal-overlay" id="task-modal">
+  <div class="modal">
+    <h2><span id="task-modal-title">タスク追加</span><button class="btn-icon" onclick="closeModal('task-modal')">&times;</button></h2>
+    <div class="form-group"><label>タイトル *</label><input class="form-input" id="task-title"></div>
+    <div class="form-group"><label>説明</label><textarea class="form-input" id="task-desc" rows="3"></textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label>ステータス</label><select class="form-input" id="task-status"><option value="todo">Todo</option><option value="in_progress">進行中</option><option value="review">レビュー</option><option value="done">完了</option><option value="blocked">ブロック</option></select></div>
+      <div class="form-group"><label>優先度</label><select class="form-input" id="task-priority"><option value="medium">中</option><option value="high">高</option><option value="low">低</option></select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label>担当者</label><select class="form-input" id="task-assignee"><option value="">未割当</option></select></div>
+      <div class="form-group"><label>期日</label><input class="form-input" type="date" id="task-due"></div>
+    </div>
+    <div class="form-group"><label>マイルストーン</label><select class="form-input" id="task-milestone"><option value="">なし</option></select></div>
+    <div class="form-group"><label>タグ（カンマ区切り）</label><input class="form-input" id="task-tags" placeholder="backend, API, bugfix"></div>
+    <input type="hidden" id="task-edit-id">
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button class="btn-primary" style="flex:1" onclick="saveTask()">保存</button>
+      <button class="btn-danger" id="task-delete-btn" style="display:none" onclick="deleteTask()">削除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Milestone Modal -->
+<div class="modal-overlay" id="milestone-modal">
+  <div class="modal">
+    <h2><span id="ms-modal-title">マイルストーン追加</span><button class="btn-icon" onclick="closeModal('milestone-modal')">&times;</button></h2>
+    <div class="form-group"><label>タイトル *</label><input class="form-input" id="ms-title"></div>
+    <div class="form-group"><label>説明</label><textarea class="form-input" id="ms-desc" rows="3"></textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label>期日</label><input class="form-input" type="date" id="ms-due"></div>
+      <div class="form-group"><label>ステータス</label><select class="form-input" id="ms-status"><option value="active">進行中</option><option value="completed">完了</option><option value="planned">計画中</option></select></div>
+    </div>
+    <input type="hidden" id="ms-edit-id">
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button class="btn-primary" style="flex:1" onclick="saveMilestone()">保存</button>
+      <button class="btn-danger" id="ms-delete-btn" style="display:none" onclick="deleteMilestone()">削除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Wiki Modal -->
+<div class="modal-overlay" id="wiki-modal">
+  <div class="modal" style="max-width:720px">
+    <h2><span id="wiki-modal-title">新規ページ</span><button class="btn-icon" onclick="closeModal('wiki-modal')">&times;</button></h2>
+    <div class="form-group"><label>タイトル *</label><input class="form-input" id="wiki-title"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label>カテゴリ</label><select class="form-input" id="wiki-category"><option value="general">一般</option><option value="product">プロダクト</option><option value="discussion">議論</option><option value="meeting">会議メモ</option><option value="spec">仕様</option><option value="howto">手順書</option></select></div>
+      <div class="form-group"><label>タグ</label><input class="form-input" id="wiki-tags" placeholder="MEGURU, 設計"></div>
+    </div>
+    <div class="form-group"><label>本文（Markdown対応）</label><textarea class="form-input" id="wiki-body" rows="15" style="font-family:monospace;font-size:.85em;min-height:300px"></textarea></div>
+    <input type="hidden" id="wiki-edit-id">
+    <button class="btn-primary" onclick="saveWiki()">保存</button>
+  </div>
+</div>
+
+<!-- Member Modal -->
+<div class="modal-overlay" id="member-modal">
+  <div class="modal">
+    <h2><span id="member-modal-title">メンバー追加</span><button class="btn-icon" onclick="closeModal('member-modal')">&times;</button></h2>
+    <div class="form-group"><label>名前 *</label><input class="form-input" id="member-name"></div>
+    <div class="form-group"><label>メール</label><input class="form-input" type="email" id="member-email"></div>
+    <div class="form-group">
+      <label>ロール（複数選択可）</label>
+      <div id="member-roles-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>
+    </div>
+    <div class="form-group"><label>カスタムロール（カンマ区切り）</label><input class="form-input" id="member-custom-roles" placeholder="データサイエンティスト, DevOps"></div>
+    <div class="form-group"><label>稼働率（%）</label><input class="form-input" type="number" id="member-capacity" min="0" max="100" value="100"></div>
+    <div class="form-group"><label>メモ</label><textarea class="form-input" id="member-memo" rows="2"></textarea></div>
+    <input type="hidden" id="member-edit-id">
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button class="btn-primary" style="flex:1" onclick="saveMember()">保存</button>
+      <button class="btn-danger" id="member-delete-btn" style="display:none" onclick="deleteMember()">削除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h2>設定<button class="btn-icon" onclick="closeModal('settings-modal')">&times;</button></h2>
+    <div class="form-group"><label>プロジェクト名</label><input class="form-input" id="setting-project-name"></div>
+    <div class="form-group"><label>Gemini APIキー</label><input class="form-input" type="password" id="setting-gemini-key" placeholder="AIza..."></div>
+    <div class="form-group"><label>スプレッドシートID</label><input class="form-input" id="setting-sheet-id" readonly style="background:#f0f4f8"></div>
+    <div style="margin-top:16px"><button class="btn-primary" onclick="saveSettings()">保存</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══ Config ═══ */
+var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
+var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets';
+var CONFIG_FILE_NAME='choreia-track-config.json';
+
+/* ═══ State ═══ */
+var accessToken='',currentUser=null,orgConfig=null,tokenClient=null;
+var tasks=[],milestones=[],wikiPages=[],members=[];
+var currentTab='dashboard',taskView='kanban',currentWikiId=null;
+
+/* ═══ Schema ═══ */
+var TASK_FIELDS=['id','title','description','status','priority','assignee','dueDate','milestone','tags','createdAt','updatedAt'];
+var MS_FIELDS=['id','title','description','dueDate','status','createdAt','updatedAt'];
+var WIKI_FIELDS=['id','title','content','category','tags','author','createdAt','updatedAt'];
+var MEMBER_FIELDS=['id','name','email','roles','customRoles','capacity','memo','createdAt','updatedAt'];
+
+var TASK_STATUSES=[
+  {key:'todo',label:'Todo',color:'#2563eb'},
+  {key:'in_progress',label:'進行中',color:'#d97706'},
+  {key:'review',label:'レビュー',color:'#7c3aed'},
+  {key:'done',label:'完了',color:'#059669'},
+  {key:'blocked',label:'ブロック',color:'#dc2626'}
+];
+
+var WIKI_CATEGORIES=[
+  {key:'general',label:'一般',icon:'📄'},{key:'product',label:'プロダクト',icon:'🚀'},
+  {key:'discussion',label:'議論',icon:'💬'},{key:'meeting',label:'会議メモ',icon:'🗓️'},
+  {key:'spec',label:'仕様',icon:'📐'},{key:'howto',label:'手順書',icon:'📖'}
+];
+
+var PREDEFINED_ROLES=[
+  {key:'pm',label:'PM',color:'#dc2626'},{key:'tech_lead',label:'テックリード',color:'#7c3aed'},
+  {key:'frontend',label:'フロントエンド',color:'#2563eb'},{key:'backend',label:'バックエンド',color:'#059669'},
+  {key:'design',label:'デザイン',color:'#d97706'},{key:'qa',label:'QA/テスト',color:'#0891b2'},
+  {key:'infra',label:'インフラ/DevOps',color:'#6366f1'},{key:'biz',label:'ビジネス/営業',color:'#be185d'},
+  {key:'data',label:'データ',color:'#4f46e5'},{key:'security',label:'セキュリティ',color:'#b91c1c'}
+];
+
+/* ═══ Utility ═══ */
+function escapeHtml(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
+function genId(p){return p+'-'+Date.now().toString(36)+Math.random().toString(36).substr(2,4)}
+function toRow(o,f){return f.map(function(k){return o[k]!=null?String(o[k]):''})}
+function fromRow(r,f){var o={};f.forEach(function(k,i){o[k]=r[i]||''});return o}
+function now(){return new Date().toISOString()}
+function fmtDate(d){if(!d)return'-';try{return new Date(d).toLocaleDateString('ja-JP')}catch(e){return d}}
+function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2500)}
+
+/* ═══ URL Query Router ═══ */
+function getQ(){var p=new URLSearchParams(location.search);return{s:p.get('s')||'',tab:p.get('tab')||'',v:p.get('v')||'',m:p.get('m')||'',id:p.get('id')||'',q:p.get('q')||''}}
+function setQ(params){var p=new URLSearchParams(location.search);Object.keys(params).forEach(function(k){params[k]?p.set(k,params[k]):p.delete(k)});history.replaceState(null,'',location.pathname+(p.toString()?'?'+p:''))}
+function buildShareUrl(extra){var p=new URLSearchParams;var sid=getSheetId();if(sid)p.set('s',sid);if(extra)Object.keys(extra).forEach(function(k){if(extra[k])p.set(k,extra[k])});return location.origin+location.pathname+'?'+p}
+function copyShareUrl(){navigator.clipboard.writeText(buildShareUrl({tab:currentTab})).then(function(){showToast('共有URLをコピーしました')})}
+function copyWikiShareUrl(){if(currentWikiId)navigator.clipboard.writeText(buildShareUrl({tab:'wiki',id:currentWikiId})).then(function(){showToast('WikiページURLをコピーしました')})}
+
+function applyQueryState(){
+  var q=getQ();
+  if(q.tab&&['dashboard','tasks','milestones','wiki','members','ai'].indexOf(q.tab)>=0)switchTab(q.tab,true);
+  if(q.v)setTaskView(q.v,true);
+  if(q.m){var sel=document.getElementById('task-milestone-filter');if(sel)sel.value=q.m}
+  if(q.q){var si=document.getElementById(currentTab==='wiki'?'wiki-search':'task-search');if(si)si.value=q.q}
+  if(q.id&&q.tab==='wiki')setTimeout(function(){openWikiDetail(q.id)},100);
+  if(q.id&&q.tab==='tasks')setTimeout(function(){openTaskById(q.id)},100);
+}
+
+/* ═══ Views ═══ */
+function showView(n){['welcome','loading','setup','main'].forEach(function(v){document.getElementById('view-'+v).style.display=v===n?'':'none'})}
+function switchTab(tab,noUrl){
+  currentTab=tab;if(!noUrl)setQ({tab:tab,id:'',q:''});
+  ['dashboard','tasks','milestones','wiki','members','ai'].forEach(function(t){
+    var te=document.querySelector('.tab[data-tab="'+t+'"]'),pe=document.getElementById('panel-'+t);
+    if(te)te.classList.toggle('active',tab===t);if(pe)pe.style.display=tab===t?'':'none';
+  });
+  if(tab==='dashboard')renderDashboard();
+  if(tab==='tasks')renderTasks();
+  if(tab==='milestones')renderMilestones();
+  if(tab==='wiki'){closeWikiDetail();renderWikiList()}
+  if(tab==='members')renderMembers();
+}
+
+/* ═══ API ═══ */
+async function apiFetch(url,opts){opts=opts||{};opts.headers=opts.headers||{};opts.headers['Authorization']='Bearer '+accessToken;var r=await fetch(url,opts);if(!r.ok){var t='';try{t=JSON.stringify(await r.json())}catch(e){}throw new Error('API '+r.status+' '+t)}return r.json()}
+function getSheetId(){var q=getQ();return q.s||(orgConfig?orgConfig.spreadsheetId:'')}
+
+/* ═══ Auth ═══ */
+function initGIS(){tokenClient=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:onTokenResponse})}
+function handleSignIn(){tokenClient.requestAccessToken()}
+function onTokenResponse(r){if(r.error)return;accessToken=r.access_token;localStorage.setItem('choreia_track_token',accessToken);loadUserInfo()}
+function handleSignOut(){accessToken='';currentUser=null;orgConfig=null;localStorage.removeItem('choreia_track_token');localStorage.removeItem('choreia_track_config_cache');showView('welcome');document.getElementById('user-avatar').style.display='none'}
+async function loadUserInfo(){
+  try{
+    var i=await apiFetch('https://www.googleapis.com/oauth2/v2/userinfo');
+    currentUser={email:i.email,name:i.name,picture:i.picture,domain:i.hd||''};
+    var a=document.getElementById('user-avatar');a.src=i.picture;a.style.display='';
+    document.getElementById('user-menu-name').textContent=i.name;
+    document.getElementById('user-menu-email').textContent=i.email;
+    await loadConfig();
+  }catch(e){console.error(e);showView('welcome')}
+}
+function toggleUserMenu(){document.getElementById('user-menu').classList.toggle('open')}
+document.addEventListener('click',function(e){if(!e.target.closest('.auth-area'))document.getElementById('user-menu').classList.remove('open')});
+
+/* ═══ Config ═══ */
+async function loadConfig(){
+  showView('loading');
+  var q=getQ();
+  if(q.s){orgConfig={spreadsheetId:q.s};try{await loadAllData();showView('main');applyQueryState();return}catch(e){console.error(e)}}
+  var cached=localStorage.getItem('choreia_track_config_cache');
+  if(cached){try{orgConfig=JSON.parse(cached);setQ({s:orgConfig.spreadsheetId});loadAllData().then(function(){showView('main');applyQueryState()});return}catch(e){}}
+  try{
+    var res=await apiFetch("https://www.googleapis.com/drive/v3/files?q=name%3D'"+CONFIG_FILE_NAME+"'+and+trashed%3Dfalse&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives");
+    if(res.files&&res.files.length>0){var cfg=await apiFetch('https://www.googleapis.com/drive/v3/files/'+res.files[0].id+'?alt=media');orgConfig=cfg;localStorage.setItem('choreia_track_config_cache',JSON.stringify(cfg));setQ({s:orgConfig.spreadsheetId});await loadAllData();showView('main');applyQueryState();return}
+  }catch(e){console.error(e)}
+  showView('setup');loadDrives();
+}
+
+/* ═══ Setup ═══ */
+var setupDriveId='',setupDriveName='',setupFolderId='',setupFolderName='',folderStack=[];
+async function loadDrives(){try{var r=await apiFetch('https://www.googleapis.com/drive/v3/drives?pageSize=50');var l=document.getElementById('drive-list');l.innerHTML='';(r.drives||[]).forEach(function(d){l.innerHTML+='<li class="drive-item" onclick="selectDrive(\''+d.id+'\',\''+escapeHtml(d.name)+'\')"><span>📁</span><span>'+escapeHtml(d.name)+'</span></li>'})}catch(e){}}
+function selectMyDrive(){setupDriveId='';setupDriveName='マイドライブ';setupFolderId='root';setupFolderName='マイドライブ';folderStack=[{id:'root',name:'マイドライブ'}];showFolderStep();loadFolders('root','')}
+function selectDrive(id,n){setupDriveId=id;setupDriveName=n;setupFolderId=id;setupFolderName=n;folderStack=[{id:id,name:n}];showFolderStep();loadFolders(id,id)}
+function showFolderStep(){document.getElementById('setup-step-drive').style.display='none';document.getElementById('setup-step-folder').style.display='';renderBreadcrumb()}
+function renderBreadcrumb(){var b=document.getElementById('folder-breadcrumb');b.innerHTML='';folderStack.forEach(function(f,i){if(i>0)b.innerHTML+='<span>/</span>';b.innerHTML+='<button onclick="navToFolder('+i+')">'+escapeHtml(f.name)+'</button>'})}
+async function loadFolders(pid,did){var q="'"+pid+"' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";var u='https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name)&orderBy=name&pageSize=100';if(did)u+='&supportsAllDrives=true&includeItemsFromAllDrives=true&driveId='+did+'&corpora=drive';var r=await apiFetch(u);var l=document.getElementById('folder-list');l.innerHTML='';(r.files||[]).forEach(function(f){l.innerHTML+='<li class="drive-item" onclick="enterFolder(\''+f.id+'\',\''+escapeHtml(f.name)+'\')"><span>📁</span><span>'+escapeHtml(f.name)+'</span></li>'});if(!r.files||!r.files.length)l.innerHTML='<li style="padding:12px;color:#5a6a7a;font-size:.9em">フォルダがありません</li>'}
+function enterFolder(id,n){folderStack.push({id:id,name:n});setupFolderId=id;setupFolderName=n;renderBreadcrumb();loadFolders(id,setupDriveId)}
+function navToFolder(i){folderStack=folderStack.slice(0,i+1);var f=folderStack[i];setupFolderId=f.id;setupFolderName=f.name;renderBreadcrumb();loadFolders(f.id,setupDriveId)}
+
+async function selectThisFolder(){
+  showView('loading');
+  try{
+    var ss=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({properties:{title:'Choreia Track'},sheets:[{properties:{title:'タスク'}},{properties:{title:'マイルストーン'}},{properties:{title:'Wiki'}},{properties:{title:'メンバー'}}]})});
+    var ssId=ss.spreadsheetId;
+    if(setupFolderId&&setupFolderId!=='root')await apiFetch('https://www.googleapis.com/drive/v3/files/'+ssId+'?addParents='+setupFolderId+'&removeParents=root'+(setupDriveId?'&supportsAllDrives=true':''),{method:'PATCH'});
+    await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+ssId+'/values:batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({valueInputOption:'RAW',data:[{range:'タスク!A1:K1',values:[TASK_FIELDS]},{range:'マイルストーン!A1:G1',values:[MS_FIELDS]},{range:'Wiki!A1:H1',values:[WIKI_FIELDS]},{range:'メンバー!A1:I1',values:[MEMBER_FIELDS]}]})});
+    var cfg={domain:currentUser.domain,admin:currentUser.email,admins:[currentUser.email],adminName:currentUser.name,folderId:setupFolderId,folderName:setupFolderName,driveId:setupDriveId,driveName:setupDriveName,spreadsheetId:ssId,projectName:'新規プロジェクト',geminiApiKey:'',createdAt:now()};
+    var cfgMeta={name:CONFIG_FILE_NAME,mimeType:'application/json'};
+    if(setupFolderId&&setupFolderId!=='root')cfgMeta.parents=[setupFolderId];
+    var form=new FormData();form.append('metadata',new Blob([JSON.stringify(cfgMeta)],{type:'application/json'}));form.append('file',new Blob([JSON.stringify(cfg)],{type:'application/json'}));
+    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'+(setupDriveId?'&supportsAllDrives=true':''),{method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:form});
+    orgConfig=cfg;localStorage.setItem('choreia_track_config_cache',JSON.stringify(cfg));setQ({s:ssId});
+    tasks=[];milestones=[];wikiPages=[];members=[];
+    showView('main');renderDashboard();showToast('プロジェクトを作成しました');
+  }catch(e){console.error(e);showToast('作成に失敗: '+e.message);showView('setup')}
+}
+
+/* ═══ Data Loading ═══ */
+async function loadAllData(){
+  var sid=getSheetId();if(!sid)return;
+  document.getElementById('project-name').textContent=(orgConfig&&orgConfig.projectName)||'プロジェクト';
+  var d=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'/values:batchGet?ranges='+encodeURIComponent('タスク!A2:K5000')+'&ranges='+encodeURIComponent('マイルストーン!A2:G5000')+'&ranges='+encodeURIComponent('Wiki!A2:H5000')+'&ranges='+encodeURIComponent('メンバー!A2:I5000'));
+  var r=d.valueRanges||[];
+  tasks=(r[0]&&r[0].values||[]).map(function(v){return fromRow(v,TASK_FIELDS)});
+  milestones=(r[1]&&r[1].values||[]).map(function(v){return fromRow(v,MS_FIELDS)});
+  wikiPages=(r[2]&&r[2].values||[]).map(function(v){return fromRow(v,WIKI_FIELDS)});
+  members=(r[3]&&r[3].values||[]).map(function(v){return fromRow(v,MEMBER_FIELDS)});
+  populateFilters();
+}
+
+function populateFilters(){
+  // Milestone filter
+  var mo='<option value="">全MS</option>';milestones.forEach(function(m){mo+='<option value="'+m.id+'">'+escapeHtml(m.title)+'</option>'});
+  document.getElementById('task-milestone-filter').innerHTML=mo;
+  document.getElementById('task-milestone').innerHTML='<option value="">なし</option>'+milestones.map(function(m){return'<option value="'+m.id+'">'+escapeHtml(m.title)+'</option>'}).join('');
+  // Assignee filter
+  var ao='<option value="">全担当</option>';members.forEach(function(m){ao+='<option value="'+escapeHtml(m.name)+'">'+escapeHtml(m.name)+'</option>'});
+  document.getElementById('task-assignee-filter').innerHTML=ao;
+  document.getElementById('task-assignee').innerHTML='<option value="">未割当</option>'+members.map(function(m){return'<option value="'+escapeHtml(m.name)+'">'+escapeHtml(m.name)+'</option>'}).join('');
+  // Wiki category filter
+  var cats={};wikiPages.forEach(function(w){if(w.category)cats[w.category]=true});
+  var co='<option value="">全カテゴリ</option>';WIKI_CATEGORIES.forEach(function(c){co+='<option value="'+c.key+'">'+c.icon+' '+c.label+'</option>'});
+  document.getElementById('wiki-category-filter').innerHTML=co;
+}
+
+/* ═══ Sheet Ops ═══ */
+async function appendRow(sh,obj,f){await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+getSheetId()+'/values/'+encodeURIComponent(sh+'!A:ZZ')+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[toRow(obj,f)]})})}
+async function updateRow(sh,idx,obj,f){await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+getSheetId()+'/values/'+encodeURIComponent(sh+'!A'+(idx+2)+':ZZ'+(idx+2))+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[toRow(obj,f)]})})}
+async function deleteRow(sh,idx){var sid=getSheetId();var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'?fields=sheets.properties');var s=meta.sheets.find(function(x){return x.properties.title===sh});if(!s)return;await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:[{deleteDimension:{range:{sheetId:s.properties.sheetId,dimension:'ROWS',startIndex:idx+1,endIndex:idx+2}}}]})})}
+
+/* ═══ Dashboard ═══ */
+function renderDashboard(){
+  var total=tasks.length,done=tasks.filter(function(t){return t.status==='done'}).length;
+  var prog=tasks.filter(function(t){return t.status==='in_progress'}).length;
+  var blocked=tasks.filter(function(t){return t.status==='blocked'}).length;
+  var pct=total?Math.round(done/total*100):0;
+  document.getElementById('dashboard-stats').innerHTML=
+    '<div class="card" style="text-align:center;margin:0"><div style="font-size:1.8em;font-weight:700;color:#1a5a8a">'+total+'</div><div style="font-size:.75em;color:#5a6a7a">総タスク</div></div>'+
+    '<div class="card" style="text-align:center;margin:0"><div style="font-size:1.8em;font-weight:700;color:#059669">'+pct+'%</div><div style="font-size:.75em;color:#5a6a7a">完了率</div></div>'+
+    '<div class="card" style="text-align:center;margin:0"><div style="font-size:1.8em;font-weight:700;color:#d97706">'+prog+'</div><div style="font-size:.75em;color:#5a6a7a">進行中</div></div>'+
+    '<div class="card" style="text-align:center;margin:0"><div style="font-size:1.8em;font-weight:700;color:#dc2626">'+blocked+'</div><div style="font-size:.75em;color:#5a6a7a">ブロック</div></div>'+
+    '<div class="card" style="text-align:center;margin:0"><div style="font-size:1.8em;font-weight:700;color:#7c3aed">'+members.length+'</div><div style="font-size:.75em;color:#5a6a7a">メンバー</div></div>';
+
+  // Milestones
+  var mh='';milestones.forEach(function(m){var mt=tasks.filter(function(t){return t.milestone===m.id}),md=mt.filter(function(t){return t.status==='done'}).length,p=mt.length?Math.round(md/mt.length*100):0;mh+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:.85em"><span style="font-weight:600">'+escapeHtml(m.title)+'</span><span style="color:#5a6a7a">'+p+'% ('+md+'/'+mt.length+')</span></div><div class="progress-bar"><div class="fill" style="width:'+p+'%"></div></div></div>'});
+  document.getElementById('dashboard-milestones').innerHTML=mh||'<div class="empty-state"><p>マイルストーンがありません</p></div>';
+
+  // Member workload
+  var mbh='';members.forEach(function(m){
+    var mTasks=tasks.filter(function(t){return t.assignee===m.name&&t.status!=='done'});
+    var mDone=tasks.filter(function(t){return t.assignee===m.name&&t.status==='done'}).length;
+    var mTotal=tasks.filter(function(t){return t.assignee===m.name}).length;
+    var roles=(m.roles||'').split(',').filter(Boolean);
+    var roleHtml=roles.map(function(r){var rd=PREDEFINED_ROLES.find(function(x){return x.key===r});return rd?'<span class="role-tag" style="background:'+rd.color+'22;color:'+rd.color+'">'+rd.label+'</span>':'<span class="role-tag" style="background:#e0e8f0;color:#3a4a5a">'+escapeHtml(r)+'</span>'}).join('');
+    var scoreClass=mTasks.length<=2?'good':mTasks.length<=5?'warn':'bad';
+    mbh+='<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #e0e8f0">';
+    mbh+='<div class="member-avatar" style="width:36px;height:36px;font-size:1em">'+escapeHtml(m.name.charAt(0))+'</div>';
+    mbh+='<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:.85em">'+escapeHtml(m.name)+'</div><div>'+roleHtml+'</div></div>';
+    mbh+='<div style="text-align:right"><span class="role-score '+scoreClass+'">残'+mTasks.length+'件</span><div style="font-size:.7em;color:#5a6a7a;margin-top:2px">完了'+mDone+'/'+mTotal+'</div></div></div>';
+  });
+  document.getElementById('dashboard-members').innerHTML=mbh||'<div class="empty-state"><p>メンバーがいません</p></div>';
+
+  // Recent updates
+  var all=[];
+  tasks.slice().sort(function(a,b){return(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')}).slice(0,3).forEach(function(t){all.push({type:'task',item:t,date:t.updatedAt||t.createdAt})});
+  wikiPages.slice().sort(function(a,b){return(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')}).slice(0,3).forEach(function(w){all.push({type:'wiki',item:w,date:w.updatedAt||w.createdAt})});
+  all.sort(function(a,b){return(b.date||'').localeCompare(a.date||'')});
+  var rh='';all.slice(0,5).forEach(function(a){
+    if(a.type==='task'){var st=TASK_STATUSES.find(function(s){return s.key===a.item.status})||{label:'',color:'#888'};rh+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #e0e8f0;cursor:pointer" onclick="switchTab(\'tasks\');setTimeout(function(){openTaskById(\''+a.item.id+'\')},50)"><span>✅</span><span style="flex:1;font-size:.85em">'+escapeHtml(a.item.title)+'</span><span class="status-badge" style="background:'+st.color+'22;color:'+st.color+'">'+st.label+'</span></div>'}
+    else{var cat=WIKI_CATEGORIES.find(function(c){return c.key===a.item.category})||{icon:'📄'};rh+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #e0e8f0;cursor:pointer" onclick="switchTab(\'wiki\');setTimeout(function(){openWikiDetail(\''+a.item.id+'\')},50)"><span>'+cat.icon+'</span><span style="flex:1;font-size:.85em">'+escapeHtml(a.item.title)+'</span><span style="font-size:.7em;color:#5a6a7a">'+fmtDate(a.date)+'</span></div>'}
+  });
+  document.getElementById('dashboard-recent').innerHTML=rh||'<div class="empty-state"><p>まだ更新がありません</p></div>';
+}
+
+/* ═══ Tasks ═══ */
+function setTaskView(v,noUrl){taskView=v;if(!noUrl)setQ({v:v});document.getElementById('btn-view-kanban').classList.toggle('active',v==='kanban');document.getElementById('btn-view-list').classList.toggle('active',v==='list');document.getElementById('tasks-kanban').style.display=v==='kanban'?'':'none';document.getElementById('tasks-list').style.display=v==='list'?'':'none';renderTasks()}
+function getFilteredTasks(){var q=(document.getElementById('task-search').value||'').toLowerCase(),mf=document.getElementById('task-milestone-filter').value,af=document.getElementById('task-assignee-filter').value;return tasks.filter(function(t){if(mf&&t.milestone!==mf)return false;if(af&&t.assignee!==af)return false;if(q&&t.title.toLowerCase().indexOf(q)<0&&(t.description||'').toLowerCase().indexOf(q)<0&&(t.tags||'').toLowerCase().indexOf(q)<0)return false;return true})}
+function renderTasks(){var f=getFilteredTasks();renderKanban(f);renderTaskList(f)}
+function renderKanban(list){var h='<div class="kanban">';TASK_STATUSES.forEach(function(s){var ins=list.filter(function(t){return t.status===s.key});h+='<div class="kanban-col"><h3>'+s.label+' <span class="count">'+ins.length+'</span></h3>';ins.forEach(function(t){var mn='';if(t.milestone){var ms=milestones.find(function(m){return m.id===t.milestone});if(ms)mn=ms.title}h+='<div class="kanban-card '+t.priority+'" onclick="openTaskById(\''+t.id+'\')"><div class="card-title">'+escapeHtml(t.title)+'</div><div class="card-meta">';if(t.assignee)h+=escapeHtml(t.assignee);if(t.dueDate)h+=(t.assignee?' · ':'')+fmtDate(t.dueDate);if(mn)h+='<br>🎯 '+escapeHtml(mn);h+='</div></div>'});h+='</div>'});h+='</div>';document.getElementById('tasks-kanban').innerHTML=h}
+function renderTaskList(list){if(!list.length){document.getElementById('tasks-list').innerHTML='<div class="empty-state"><div class="icon">✅</div><p>タスクがありません</p></div>';return}var h='<table class="data-table"><thead><tr><th></th><th>タイトル</th><th>ステータス</th><th>担当</th><th>期日</th><th>MS</th></tr></thead><tbody>';list.forEach(function(t){var st=TASK_STATUSES.find(function(s){return s.key===t.status})||{label:'',color:'#888'};var mn='-';if(t.milestone){var ms=milestones.find(function(m){return m.id===t.milestone});if(ms)mn=ms.title}h+='<tr onclick="openTaskById(\''+t.id+'\')"><td><span class="priority-dot '+t.priority+'"></span></td><td style="font-weight:600">'+escapeHtml(t.title)+'</td><td><span class="status-badge" style="background:'+st.color+'22;color:'+st.color+'">'+st.label+'</span></td><td>'+escapeHtml(t.assignee||'-')+'</td><td>'+fmtDate(t.dueDate)+'</td><td>'+escapeHtml(mn)+'</td></tr>'});h+='</tbody></table>';document.getElementById('tasks-list').innerHTML=h}
+
+function openTaskModal(t){
+  document.getElementById('task-modal-title').textContent=t?'タスク編集':'タスク追加';
+  document.getElementById('task-title').value=t?t.title:'';document.getElementById('task-desc').value=t?t.description:'';
+  document.getElementById('task-status').value=t?t.status:'todo';document.getElementById('task-priority').value=t?t.priority:'medium';
+  document.getElementById('task-assignee').value=t?t.assignee:'';document.getElementById('task-due').value=t?t.dueDate:'';
+  document.getElementById('task-milestone').value=t?t.milestone:'';document.getElementById('task-tags').value=t?t.tags:'';
+  document.getElementById('task-edit-id').value=t?t.id:'';document.getElementById('task-delete-btn').style.display=t?'':'none';
+  document.getElementById('task-modal').classList.add('open');
+}
+function openTaskById(id){var t=tasks.find(function(x){return x.id===id});if(t)openTaskModal(t)}
+async function saveTask(){
+  var id=document.getElementById('task-edit-id').value;
+  var obj={id:id||genId('T'),title:document.getElementById('task-title').value.trim(),description:document.getElementById('task-desc').value.trim(),status:document.getElementById('task-status').value,priority:document.getElementById('task-priority').value,assignee:document.getElementById('task-assignee').value,dueDate:document.getElementById('task-due').value,milestone:document.getElementById('task-milestone').value,tags:document.getElementById('task-tags').value.trim(),createdAt:id?(tasks.find(function(t){return t.id===id})||{}).createdAt||now():now(),updatedAt:now()};
+  if(!obj.title){showToast('タイトルを入力してください');return}
+  try{if(id){var i=tasks.findIndex(function(t){return t.id===id});if(i>=0){await updateRow('タスク',i,obj,TASK_FIELDS);tasks[i]=obj}}else{await appendRow('タスク',obj,TASK_FIELDS);tasks.push(obj)}closeModal('task-modal');renderTasks();renderDashboard();showToast(id?'更新しました':'追加しました')}catch(e){showToast('エラー: '+e.message)}
+}
+async function deleteTask(){var id=document.getElementById('task-edit-id').value;if(!id||!confirm('削除しますか？'))return;var i=tasks.findIndex(function(t){return t.id===id});if(i>=0){try{await deleteRow('タスク',i);tasks.splice(i,1);closeModal('task-modal');renderTasks();renderDashboard();showToast('削除しました')}catch(e){showToast('エラー: '+e.message)}}}
+
+/* ═══ Milestones ═══ */
+function renderMilestones(){
+  var q=(document.getElementById('ms-search').value||'').toLowerCase();
+  var f=milestones.filter(function(m){return!q||m.title.toLowerCase().indexOf(q)>=0||(m.description||'').toLowerCase().indexOf(q)>=0});
+  if(!f.length){document.getElementById('milestones-container').innerHTML='<div class="empty-state"><div class="icon">🎯</div><p>マイルストーンがありません</p><button class="btn-small" onclick="openMilestoneModal()">+ 追加</button></div>';return}
+  var h='';f.forEach(function(m){var mt=tasks.filter(function(t){return t.milestone===m.id}),md=mt.filter(function(t){return t.status==='done'}).length,p=mt.length?Math.round(md/mt.length*100):0;var sl=m.status==='completed'?'完了':m.status==='planned'?'計画中':'進行中';h+='<div class="milestone-card" onclick="openMilestoneModal(milestones.find(function(x){return x.id===\''+m.id+'\'}))">';h+='<div class="ms-title">'+escapeHtml(m.title)+'</div><div class="ms-meta">'+escapeHtml(m.description||'')+'</div>';h+='<div class="ms-stats"><span>📊 '+p+'% ('+md+'/'+mt.length+')</span><span>📅 '+fmtDate(m.dueDate)+'</span><span class="status-badge" style="background:#e0e8f0">'+sl+'</span></div>';h+='<div class="progress-bar" style="margin-top:8px"><div class="fill" style="width:'+p+'%"></div></div></div>'});
+  document.getElementById('milestones-container').innerHTML=h;
+}
+function openMilestoneModal(m){document.getElementById('ms-modal-title').textContent=m?'編集':'追加';document.getElementById('ms-title').value=m?m.title:'';document.getElementById('ms-desc').value=m?m.description:'';document.getElementById('ms-due').value=m?m.dueDate:'';document.getElementById('ms-status').value=m?m.status:'active';document.getElementById('ms-edit-id').value=m?m.id:'';document.getElementById('ms-delete-btn').style.display=m?'':'none';document.getElementById('milestone-modal').classList.add('open')}
+async function saveMilestone(){var id=document.getElementById('ms-edit-id').value;var obj={id:id||genId('M'),title:document.getElementById('ms-title').value.trim(),description:document.getElementById('ms-desc').value.trim(),dueDate:document.getElementById('ms-due').value,status:document.getElementById('ms-status').value,createdAt:id?(milestones.find(function(m){return m.id===id})||{}).createdAt||now():now(),updatedAt:now()};if(!obj.title){showToast('タイトルを入力');return}try{if(id){var i=milestones.findIndex(function(m){return m.id===id});if(i>=0){await updateRow('マイルストーン',i,obj,MS_FIELDS);milestones[i]=obj}}else{await appendRow('マイルストーン',obj,MS_FIELDS);milestones.push(obj)}closeModal('milestone-modal');populateFilters();renderMilestones();renderDashboard();showToast(id?'更新':'追加')}catch(e){showToast('エラー: '+e.message)}}
+async function deleteMilestone(){var id=document.getElementById('ms-edit-id').value;if(!id||!confirm('削除？'))return;var i=milestones.findIndex(function(m){return m.id===id});if(i>=0){try{await deleteRow('マイルストーン',i);milestones.splice(i,1);closeModal('milestone-modal');populateFilters();renderMilestones();renderDashboard();showToast('削除')}catch(e){showToast('エラー: '+e.message)}}}
+
+/* ═══ Wiki ═══ */
+function renderWikiList(){
+  var q=(document.getElementById('wiki-search').value||'').toLowerCase(),cf=document.getElementById('wiki-category-filter').value;
+  var f=wikiPages.filter(function(w){if(cf&&w.category!==cf)return false;if(q&&w.title.toLowerCase().indexOf(q)<0&&(w.content||'').toLowerCase().indexOf(q)<0&&(w.tags||'').toLowerCase().indexOf(q)<0)return false;return true}).sort(function(a,b){return(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')});
+  if(!f.length){document.getElementById('wiki-list').innerHTML='<div class="empty-state"><div class="icon">📝</div><p>Wikiページがありません</p><button class="btn-small" onclick="openWikiModal()">+ 新規</button></div>';return}
+  var h='';f.forEach(function(w){var c=WIKI_CATEGORIES.find(function(x){return x.key===w.category})||{icon:'📄',label:w.category||'一般'};h+='<li class="wiki-item" onclick="openWikiDetail(\''+w.id+'\')"><span class="wiki-icon">'+c.icon+'</span><div style="flex:1;min-width:0"><div class="wiki-title">'+escapeHtml(w.title)+'<span class="wiki-category">'+c.label+'</span></div><div class="wiki-meta">';if(w.author)h+=escapeHtml(w.author)+' · ';h+=fmtDate(w.updatedAt||w.createdAt);if(w.tags)h+=' · '+escapeHtml(w.tags);h+='</div></div></li>'});
+  document.getElementById('wiki-list').innerHTML=h;
+}
+function openWikiDetail(id){var w=wikiPages.find(function(p){return p.id===id});if(!w)return;currentWikiId=id;setQ({id:id});document.getElementById('wiki-list-view').style.display='none';document.getElementById('wiki-toolbar').style.display='none';document.getElementById('wiki-detail-view').style.display='';var c=WIKI_CATEGORIES.find(function(x){return x.key===w.category})||{icon:'📄',label:w.category||'一般'};document.getElementById('wiki-detail-content').innerHTML='<div style="margin-bottom:16px"><h1 style="font-size:1.3em;margin-bottom:4px">'+c.icon+' '+escapeHtml(w.title)+'</h1><div style="font-size:.8em;color:#5a6a7a">'+(w.author?escapeHtml(w.author)+' · ':'')+'更新: '+fmtDate(w.updatedAt||w.createdAt)+(w.tags?' · タグ: '+escapeHtml(w.tags):'')+'</div></div><div class="wiki-rendered">'+renderMarkdown(w.content||'')+'</div>'}
+function closeWikiDetail(){currentWikiId=null;setQ({id:''});document.getElementById('wiki-list-view').style.display='';document.getElementById('wiki-toolbar').style.display='';document.getElementById('wiki-detail-view').style.display='none'}
+function openWikiModal(w){document.getElementById('wiki-modal-title').textContent=w?'編集':'新規ページ';document.getElementById('wiki-title').value=w?w.title:'';document.getElementById('wiki-category').value=w?w.category:'general';document.getElementById('wiki-tags').value=w?w.tags:'';document.getElementById('wiki-body').value=w?w.content:'';document.getElementById('wiki-edit-id').value=w?w.id:'';document.getElementById('wiki-modal').classList.add('open')}
+function editCurrentWiki(){var w=wikiPages.find(function(p){return p.id===currentWikiId});if(w)openWikiModal(w)}
+async function saveWiki(){var id=document.getElementById('wiki-edit-id').value;var obj={id:id||genId('W'),title:document.getElementById('wiki-title').value.trim(),content:document.getElementById('wiki-body').value,category:document.getElementById('wiki-category').value,tags:document.getElementById('wiki-tags').value.trim(),author:currentUser?currentUser.name:'',createdAt:id?(wikiPages.find(function(w){return w.id===id})||{}).createdAt||now():now(),updatedAt:now()};if(!obj.title){showToast('タイトルを入力');return}try{if(id){var i=wikiPages.findIndex(function(w){return w.id===id});if(i>=0){await updateRow('Wiki',i,obj,WIKI_FIELDS);wikiPages[i]=obj}}else{await appendRow('Wiki',obj,WIKI_FIELDS);wikiPages.push(obj)}closeModal('wiki-modal');renderWikiList();renderDashboard();if(currentWikiId===obj.id)openWikiDetail(obj.id);showToast(id?'更新':'作成')}catch(e){showToast('エラー: '+e.message)}}
+async function deleteCurrentWiki(){if(!currentWikiId||!confirm('削除？'))return;var i=wikiPages.findIndex(function(w){return w.id===currentWikiId});if(i>=0){try{await deleteRow('Wiki',i);wikiPages.splice(i,1);closeWikiDetail();renderWikiList();renderDashboard();showToast('削除')}catch(e){showToast('エラー: '+e.message)}}}
+
+/* ═══ Markdown ═══ */
+function renderMarkdown(text){
+  if(!text)return'';var h=escapeHtml(text);
+  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,function(m,l,c){return'<pre><code>'+c+'</code></pre>'});
+  h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
+  h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');h=h.replace(/^## (.+)$/gm,'<h2>$1</h2>');h=h.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');h=h.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  h=h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  h=h.replace(/^&gt; (.+)$/gm,'<blockquote>$1</blockquote>');
+  h=h.replace(/^- (.+)$/gm,'<li>$1</li>');
+  h=h.replace(/(<li>[\s\S]*?<\/li>)/g,'<ul>$1</ul>');
+  h=h.replace(/^---$/gm,'<hr>');
+  h=h.replace(/\n\n/g,'</p><p>');h=h.replace(/\n/g,'<br>');h='<p>'+h+'</p>';
+  h=h.replace(/<p><(h[123]|pre|blockquote|ul|hr)/g,'<$1');
+  h=h.replace(/<\/(h[123]|pre|blockquote|ul)><\/p>/g,'</$1>');
+  h=h.replace(/<p><\/p>/g,'');
+  return h;
+}
+
+/* ═══ Members ═══ */
+function renderMembers(){
+  var q=(document.getElementById('member-search').value||'').toLowerCase();
+  var f=members.filter(function(m){return!q||m.name.toLowerCase().indexOf(q)>=0||(m.roles||'').toLowerCase().indexOf(q)>=0||(m.customRoles||'').toLowerCase().indexOf(q)>=0});
+  if(!f.length){document.getElementById('members-container').innerHTML='<div class="empty-state"><div class="icon">👥</div><p>メンバーがいません</p><button class="btn-small" onclick="openMemberModal()">+ 追加</button></div>';return}
+  var h='';
+  f.forEach(function(m){
+    var mTasks=tasks.filter(function(t){return t.assignee===m.name});
+    var active=mTasks.filter(function(t){return t.status!=='done'});
+    var done=mTasks.filter(function(t){return t.status==='done'});
+    var roles=(m.roles||'').split(',').filter(Boolean);
+    var customRoles=(m.customRoles||'').split(',').map(function(s){return s.trim()}).filter(Boolean);
+    var roleHtml=roles.map(function(r){var rd=PREDEFINED_ROLES.find(function(x){return x.key===r});return rd?'<span class="role-tag" style="background:'+rd.color+'22;color:'+rd.color+'">'+rd.label+'</span>':''}).join('');
+    roleHtml+=customRoles.map(function(r){return'<span class="role-tag" style="background:#e0e8f0;color:#3a4a5a">'+escapeHtml(r)+'</span>'}).join('');
+    var scoreClass=active.length<=2?'good':active.length<=5?'warn':'bad';
+    h+='<div class="member-card" onclick="openMemberModal(members.find(function(x){return x.id===\''+m.id+'\'}))">';
+    h+='<div class="member-avatar">'+escapeHtml(m.name.charAt(0))+'</div>';
+    h+='<div class="member-info"><div class="member-name">'+escapeHtml(m.name)+'</div>';
+    if(m.email)h+='<div style="font-size:.75em;color:#5a6a7a">'+escapeHtml(m.email)+'</div>';
+    h+='<div style="margin-top:4px">'+roleHtml+'</div>';
+    h+='<div class="member-stats"><span class="stat"><span class="role-score '+scoreClass+'">進行中 '+active.length+'</span></span><span class="stat">完了 '+done.length+'</span><span class="stat">稼働率 '+(m.capacity||100)+'%</span></span></div>';
+    if(m.memo)h+='<div style="font-size:.75em;color:#5a6a7a;margin-top:4px">'+escapeHtml(m.memo)+'</div>';
+    h+='</div></div>';
+  });
+  document.getElementById('members-container').innerHTML=h;
+}
+
+function openMemberModal(m){
+  document.getElementById('member-modal-title').textContent=m?'メンバー編集':'メンバー追加';
+  document.getElementById('member-name').value=m?m.name:'';
+  document.getElementById('member-email').value=m?m.email:'';
+  document.getElementById('member-custom-roles').value=m?m.customRoles:'';
+  document.getElementById('member-capacity').value=m?m.capacity||100:100;
+  document.getElementById('member-memo').value=m?m.memo:'';
+  document.getElementById('member-edit-id').value=m?m.id:'';
+  document.getElementById('member-delete-btn').style.display=m?'':'none';
+  // Render role checkboxes
+  var existingRoles=(m&&m.roles||'').split(',');
+  var cbHtml='';PREDEFINED_ROLES.forEach(function(r){
+    var checked=existingRoles.indexOf(r.key)>=0?'checked':'';
+    cbHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:.85em;cursor:pointer"><input type="checkbox" class="member-role-cb" value="'+r.key+'" '+checked+'><span class="role-tag" style="background:'+r.color+'22;color:'+r.color+'">'+r.label+'</span></label>';
+  });
+  document.getElementById('member-roles-checkboxes').innerHTML=cbHtml;
+  document.getElementById('member-modal').classList.add('open');
+}
+
+async function saveMember(){
+  var id=document.getElementById('member-edit-id').value;
+  var rolesArr=[];document.querySelectorAll('.member-role-cb:checked').forEach(function(cb){rolesArr.push(cb.value)});
+  var obj={id:id||genId('U'),name:document.getElementById('member-name').value.trim(),email:document.getElementById('member-email').value.trim(),roles:rolesArr.join(','),customRoles:document.getElementById('member-custom-roles').value.trim(),capacity:document.getElementById('member-capacity').value,memo:document.getElementById('member-memo').value.trim(),createdAt:id?(members.find(function(m){return m.id===id})||{}).createdAt||now():now(),updatedAt:now()};
+  if(!obj.name){showToast('名前を入力');return}
+  try{if(id){var i=members.findIndex(function(m){return m.id===id});if(i>=0){await updateRow('メンバー',i,obj,MEMBER_FIELDS);members[i]=obj}}else{await appendRow('メンバー',obj,MEMBER_FIELDS);members.push(obj)}closeModal('member-modal');populateFilters();renderMembers();renderDashboard();showToast(id?'更新':'追加')}catch(e){showToast('エラー: '+e.message)}
+}
+async function deleteMember(){var id=document.getElementById('member-edit-id').value;if(!id||!confirm('削除？'))return;var i=members.findIndex(function(m){return m.id===id});if(i>=0){try{await deleteRow('メンバー',i);members.splice(i,1);closeModal('member-modal');populateFilters();renderMembers();renderDashboard();showToast('削除')}catch(e){showToast('エラー: '+e.message)}}}
+
+/* ═══ Gemini API ═══ */
+function getGeminiKey(){return(orgConfig&&orgConfig.geminiApiKey)||localStorage.getItem('choreia_track_gemini_key')||''}
+function promptGeminiKey(){var k=prompt('Gemini APIキーを入力:');if(k){localStorage.setItem('choreia_track_gemini_key',k);if(orgConfig)orgConfig.geminiApiKey=k}return k}
+
+async function callGemini(prompt){
+  var key=getGeminiKey();if(!key){key=promptGeminiKey();if(!key)return null}
+  var resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+key,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+  });
+  var data=await resp.json();
+  return data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts&&data.candidates[0].content.parts[0]&&data.candidates[0].content.parts[0].text||null;
+}
+
+/* ═══ AI PM Advisor ═══ */
+function buildProjectContext(){
+  var ctx='# プロジェクト状況\n\n';
+  ctx+='## メンバー ('+members.length+'人)\n';
+  members.forEach(function(m){
+    var roles=(m.roles||'').split(',').filter(Boolean).map(function(r){var rd=PREDEFINED_ROLES.find(function(x){return x.key===r});return rd?rd.label:r}).join(', ');
+    var cr=m.customRoles||'';if(cr)roles+=(roles?', ':'')+cr;
+    var active=tasks.filter(function(t){return t.assignee===m.name&&t.status!=='done'}).length;
+    ctx+='- '+m.name+' [ロール: '+(roles||'未設定')+'] [稼働率: '+(m.capacity||100)+'%] [進行中タスク: '+active+']\n';
+  });
+  ctx+='\n## マイルストーン ('+milestones.length+'件)\n';
+  milestones.forEach(function(m){
+    var mt=tasks.filter(function(t){return t.milestone===m.id}),md=mt.filter(function(t){return t.status==='done'}).length;
+    ctx+='- '+m.title+' [期日: '+(m.dueDate||'未設定')+'] [進捗: '+md+'/'+mt.length+'] [状態: '+m.status+']\n';
+  });
+  ctx+='\n## タスク ('+tasks.length+'件)\n';
+  var byStatus={};TASK_STATUSES.forEach(function(s){byStatus[s.key]=tasks.filter(function(t){return t.status===s.key})});
+  TASK_STATUSES.forEach(function(s){ctx+=s.label+': '+byStatus[s.key].length+'件\n';byStatus[s.key].forEach(function(t){ctx+='  - '+t.title+(t.assignee?' [担当: '+t.assignee+']':'')+(t.dueDate?' [期日: '+t.dueDate+']':'')+(t.priority==='high'?' [高優先]':'')+'\n'})});
+  ctx+='\n## Wiki ('+wikiPages.length+'ページ)\n';
+  wikiPages.forEach(function(w){ctx+='- '+w.title+' ['+w.category+']'+(w.tags?' ['+w.tags+']':'')+'\n'});
+  return ctx;
+}
+
+async function runAiAdvisor(mode){
+  var resultEl=document.getElementById('ai-advisor-result');
+  resultEl.innerHTML='<div class="loading"><div class="spinner"></div><p style="margin-top:8px">分析中...</p></div>';
+  var ctx=buildProjectContext();
+  var prompts={
+    health:'あなたはプロジェクトマネージャー（PM）です。以下のプロジェクト状況を分析し、プロジェクトの健全性を評価してください。\n\n評価項目：\n1. 全体の進捗状況（順調/注意/危険）\n2. ボトルネックになっている箇所\n3. タスクの偏り（特定メンバーに集中していないか）\n4. 期日リスクのあるマイルストーン\n5. 改善提案（具体的に3つ）\n\nMarkdown形式で回答してください。\n\n'+ctx,
+    roles:'あなたはプロジェクトマネージャー（PM）です。以下のプロジェクトのメンバー構成とタスク内容を分析し、不足しているロールを指摘してください。\n\n分析項目：\n1. 現在のロール構成の評価\n2. 明らかに不足しているロール（具体的な理由付き）\n3. タスク内容から推測される必要な専門性\n4. 各メンバーの役割分担の適切さ\n5. 採用・外注の優先度ランキング\n\nMarkdown形式で回答してください。\n\n'+ctx,
+    risks:'あなたはプロジェクトマネージャー（PM）です。以下のプロジェクト状況からリスクを分析してください。\n\n分析項目：\n1. スケジュールリスク（期日超過の可能性）\n2. リソースリスク（メンバー過負荷、単一障害点）\n3. 技術リスク（ブロックされているタスクの影響範囲）\n4. プロセスリスク（レビュー停滞、依存関係）\n5. リスク軽減策（優先度順に具体的に）\n\nMarkdown形式で回答してください。\n\n'+ctx,
+    next:'あなたはプロジェクトマネージャー（PM）です。以下のプロジェクト状況を分析し、次に取るべきアクションを提案してください。\n\n提案項目：\n1. 今すぐやるべきこと（今日中）\n2. 今週中にやるべきこと\n3. 各メンバーへの具体的な指示案\n4. 次の会議で議論すべきトピック\n5. 長期的に取り組むべき改善\n\nMarkdown形式で回答してください。\n\n'+ctx
+  };
+  try{
+    var result=await callGemini(prompts[mode]);
+    if(result)resultEl.innerHTML='<div class="wiki-rendered" style="padding:0">'+renderMarkdown(result)+'</div>';
+    else resultEl.innerHTML='<p style="color:#dc2626">生成に失敗しました</p>';
+  }catch(e){resultEl.innerHTML='<p style="color:#dc2626">エラー: '+escapeHtml(e.message)+'</p>'}
+}
+
+/* ═══ Meeting → Auto Register ═══ */
+async function processMeetingNotes(){
+  var raw=document.getElementById('meeting-raw-input').value.trim();
+  if(!raw){showToast('会議メモを入力してください');return}
+  var btn=document.getElementById('btn-process-meeting');btn.disabled=true;btn.textContent='🤖 解析中...';
+  var resultEl=document.getElementById('meeting-result');
+  resultEl.style.display='block';resultEl.innerHTML='<div class="loading"><div class="spinner"></div><p style="margin-top:8px">会議メモを解析中...</p></div>';
+
+  var memberNames=members.map(function(m){return m.name}).join(', ');
+  var msNames=milestones.map(function(m){return m.title+' (id:'+m.id+')'}).join(', ');
+
+  var prompt='あなたはプロジェクトマネージャーのアシスタントです。以下の会議メモを解析し、JSONで結果を返してください。\n\n';
+  prompt+='プロジェクトメンバー: '+memberNames+'\n';
+  prompt+='マイルストーン: '+msNames+'\n\n';
+  prompt+='以下のJSON形式で返してください（JSON以外の文字は含めないでください）:\n';
+  prompt+='```json\n{\n';
+  prompt+='  "summary": "会議のサマリ（Markdown形式、300字程度）",\n';
+  prompt+='  "tasks": [\n';
+  prompt+='    {"title": "タスク名", "description": "詳細", "assignee": "担当者名（メンバーリストにあれば一致させる）", "priority": "high/medium/low", "dueDate": "YYYY-MM-DD or 空", "milestone": "マイルストーンID or 空"}\n';
+  prompt+='  ],\n';
+  prompt+='  "discussions": [\n';
+  prompt+='    {"title": "議論トピック", "content": "議論の内容と結論（Markdown形式）", "tags": "関連タグ"}\n';
+  prompt+='  ],\n';
+  prompt+='  "decisions": ["決定事項1", "決定事項2"],\n';
+  prompt+='  "risks": ["リスクや懸念事項"]\n';
+  prompt+='}\n```\n\n';
+  prompt+='会議メモ:\n'+raw;
+
+  try{
+    var result=await callGemini(prompt);
+    if(!result){resultEl.innerHTML='<p style="color:#dc2626">生成に失敗しました</p>';btn.disabled=false;btn.textContent='🤖 解析して自動登録';return}
+
+    // Parse JSON from response
+    var jsonMatch=result.match(/\{[\s\S]*\}/);
+    if(!jsonMatch){resultEl.innerHTML='<p style="color:#dc2626">JSONの解析に失敗しました</p>';btn.disabled=false;btn.textContent='🤖 解析して自動登録';return}
+    var parsed=JSON.parse(jsonMatch[0]);
+
+    var autoRegister=document.getElementById('meeting-auto-register').checked;
+    var registered={tasks:0,wiki:0};
+
+    // Register tasks
+    if(autoRegister&&parsed.tasks&&parsed.tasks.length){
+      for(var i=0;i<parsed.tasks.length;i++){
+        var t=parsed.tasks[i];
+        var obj={id:genId('T'),title:t.title||'',description:t.description||'',status:'todo',priority:t.priority||'medium',assignee:t.assignee||'',dueDate:t.dueDate||'',milestone:t.milestone||'',tags:'会議起票',createdAt:now(),updatedAt:now()};
+        if(obj.title){await appendRow('タスク',obj,TASK_FIELDS);tasks.push(obj);registered.tasks++}
+      }
+    }
+
+    // Register wiki (meeting summary + discussions)
+    if(autoRegister){
+      var today=new Date().toLocaleDateString('ja-JP');
+      // Meeting summary
+      if(parsed.summary){
+        var summaryContent='## 会議サマリ ('+today+')\n\n'+parsed.summary;
+        if(parsed.decisions&&parsed.decisions.length)summaryContent+='\n\n## 決定事項\n'+parsed.decisions.map(function(d){return'- '+d}).join('\n');
+        if(parsed.risks&&parsed.risks.length)summaryContent+='\n\n## リスク・懸念\n'+parsed.risks.map(function(r){return'- '+r}).join('\n');
+        var wObj={id:genId('W'),title:'会議メモ '+today,content:summaryContent,category:'meeting',tags:'会議',author:currentUser?currentUser.name:'',createdAt:now(),updatedAt:now()};
+        await appendRow('Wiki',wObj,WIKI_FIELDS);wikiPages.push(wObj);registered.wiki++;
+      }
+      // Discussions as separate wiki pages
+      if(parsed.discussions){
+        for(var j=0;j<parsed.discussions.length;j++){
+          var disc=parsed.discussions[j];
+          if(disc.title&&disc.content){
+            var dObj={id:genId('W'),title:disc.title,content:disc.content,category:'discussion',tags:disc.tags||'会議',author:currentUser?currentUser.name:'',createdAt:now(),updatedAt:now()};
+            await appendRow('Wiki',dObj,WIKI_FIELDS);wikiPages.push(dObj);registered.wiki++;
+          }
+        }
+      }
+    }
+
+    // Show result
+    var rh='<div class="card" style="background:#f0fff4;border:1px solid #86efac">';
+    rh+='<h2 style="border-bottom-color:#059669">✅ 解析完了</h2>';
+    if(registered.tasks||registered.wiki)rh+='<p style="font-size:.9em;margin-bottom:12px"><strong>自動登録:</strong> タスク '+registered.tasks+'件、Wiki '+registered.wiki+'ページ</p>';
+    if(parsed.summary)rh+='<div class="wiki-rendered" style="padding:0;margin-bottom:12px">'+renderMarkdown(parsed.summary)+'</div>';
+    if(parsed.tasks&&parsed.tasks.length){rh+='<h3 style="font-size:.9em;margin-bottom:8px">抽出されたタスク</h3><ul style="font-size:.85em;margin-bottom:12px">';parsed.tasks.forEach(function(t){rh+='<li><strong>'+escapeHtml(t.title)+'</strong>'+(t.assignee?' → '+escapeHtml(t.assignee):'')+(t.dueDate?' (期日: '+t.dueDate+')':'')+'</li>'});rh+='</ul>'}
+    if(parsed.decisions&&parsed.decisions.length){rh+='<h3 style="font-size:.9em;margin-bottom:8px">決定事項</h3><ul style="font-size:.85em;margin-bottom:12px">';parsed.decisions.forEach(function(d){rh+='<li>'+escapeHtml(d)+'</li>'});rh+='</ul>'}
+    if(parsed.risks&&parsed.risks.length){rh+='<h3 style="font-size:.9em;margin-bottom:8px">リスク・懸念</h3><ul style="font-size:.85em">';parsed.risks.forEach(function(r){rh+='<li>'+escapeHtml(r)+'</li>'});rh+='</ul>'}
+    rh+='</div>';
+    resultEl.innerHTML=rh;
+    populateFilters();renderDashboard();
+    showToast('会議メモを解析・登録しました');
+  }catch(e){
+    resultEl.innerHTML='<p style="color:#dc2626">エラー: '+escapeHtml(e.message)+'</p>';
+  }
+  btn.disabled=false;btn.textContent='🤖 解析して自動登録';
+}
+
+/* ═══ Settings ═══ */
+function showSettings(){document.getElementById('user-menu').classList.remove('open');document.getElementById('setting-project-name').value=(orgConfig&&orgConfig.projectName)||'';document.getElementById('setting-gemini-key').value=getGeminiKey();document.getElementById('setting-sheet-id').value=getSheetId();document.getElementById('settings-modal').classList.add('open')}
+async function saveSettings(){
+  var pn=document.getElementById('setting-project-name').value.trim(),gk=document.getElementById('setting-gemini-key').value.trim();
+  if(orgConfig){orgConfig.projectName=pn;orgConfig.geminiApiKey=gk;localStorage.setItem('choreia_track_config_cache',JSON.stringify(orgConfig));localStorage.setItem('choreia_track_gemini_key',gk);document.getElementById('project-name').textContent=pn||'プロジェクト';
+    try{var res=await apiFetch("https://www.googleapis.com/drive/v3/files?q=name%3D'"+CONFIG_FILE_NAME+"'+and+trashed%3Dfalse&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives");if(res.files&&res.files.length>0)await fetch('https://www.googleapis.com/upload/drive/v3/files/'+res.files[0].id+'?uploadType=media'+(orgConfig.driveId?'&supportsAllDrives=true':''),{method:'PATCH',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify(orgConfig)})}catch(e){console.error(e)}
+  }closeModal('settings-modal');showToast('保存しました');
+}
+
+/* ═══ Modal ═══ */
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.modal-overlay').forEach(function(el){el.addEventListener('click',function(e){if(e.target===el)el.classList.remove('open')})});
+
+/* ═══ Init ═══ */
+function onGapiLoad(){initGIS();showView('welcome');var t=localStorage.getItem('choreia_track_token');if(t){accessToken=t;loadUserInfo()}}
+window.addEventListener('popstate',function(){var q=getQ();if(q.tab)switchTab(q.tab,true);if(q.id&&q.tab==='wiki')openWikiDetail(q.id)});
+</script>
+<script src="https://accounts.google.com/gsi/client" onload="onGapiLoad()"></script>
+</body>
+</html>
