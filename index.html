@@ -190,7 +190,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 <body>
 <div class="container">
   <div class="header">
-    <h1><span>Choreia</span> Track</h1>
+    <h1><a href="https://choreia.github.io/" style="text-decoration:none;color:inherit"><span>Choreia</span></a> Track</h1>
     <div class="auth-area" id="auth-area">
       <img id="user-avatar" src="" alt="" style="display:none" onclick="toggleUserMenu()">
       <div class="user-menu" id="user-menu">
@@ -262,7 +262,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       <span style="font-size:1.2em">📋</span>
       <div style="flex:1">
         <div style="font-size:.75em;color:#5a6a7a">プロジェクト</div>
-        <div style="font-weight:600;color:#1a2430" id="project-name">-</div>
+        <div style="font-weight:600;color:#1a2430;cursor:pointer;display:flex;align-items:center;gap:4px" id="project-name" onclick="editProjectName()" title="クリックして名前を変更">-<span style="font-size:.7em;color:#5a6a7a">✏️</span></div>
       </div>
       <button class="btn-share" onclick="copyShareUrl()">🔗 共有URL</button>
     </div>
@@ -352,6 +352,16 @@ textarea.form-input{resize:vertical;min-height:80px}
           </label>
         </div>
         <div id="meeting-result" style="display:none;margin-top:16px"></div>
+      </div>
+
+      <!-- Meeting Need Check -->
+      <div class="ai-card">
+        <h2>🗓️ ミーティング要否チェック</h2>
+        <p style="font-size:.85em;color:#5a6a7a;margin-bottom:12px">進捗確認だけなら集まる必要なし。Geminiがダッシュボードの状態から判定します。</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <button class="ai-btn" onclick="checkMeetingNeed()">🤖 今週ミーティング必要？</button>
+        </div>
+        <div id="meeting-need-result"></div>
       </div>
 
       <!-- PM Advisor -->
@@ -454,6 +464,7 @@ textarea.form-input{resize:vertical;min-height:80px}
     <h2>設定<button class="btn-icon" onclick="closeModal('settings-modal')">&times;</button></h2>
     <div class="form-group"><label>プロジェクト名</label><input class="form-input" id="setting-project-name"></div>
     <div class="form-group"><label>Gemini APIキー</label><input class="form-input" type="password" id="setting-gemini-key" placeholder="AIza..."></div>
+    <div class="form-group"><label>Slack Webhook URL</label><input class="form-input" id="setting-slack-url" placeholder="https://hooks.slack.com/services/..."><p style="font-size:.7em;color:#5a6a7a;margin-top:4px">AI PMの結果やサマリをSlackチャンネルに送信できます</p></div>
     <div class="form-group"><label>スプレッドシートID</label><input class="form-input" id="setting-sheet-id" readonly style="background:#f0f4f8"></div>
     <div style="margin-top:16px"><button class="btn-primary" onclick="saveSettings()">保存</button></div>
   </div>
@@ -692,7 +703,7 @@ async function selectThisFolder(){
 /* ═══ Data Loading ═══ */
 async function loadAllData(){
   var sid=getSheetId();if(!sid)return;
-  document.getElementById('project-name').textContent=(orgConfig&&orgConfig.projectName)||'プロジェクト';
+  var _pn=(orgConfig&&orgConfig.projectName)||'プロジェクト';document.getElementById('project-name').innerHTML=escapeHtml(_pn)+'<span style="font-size:.7em;color:#5a6a7a">✏️</span>';
   var d=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'/values:batchGet?ranges='+encodeURIComponent('タスク!A2:K5000')+'&ranges='+encodeURIComponent('マイルストーン!A2:G5000')+'&ranges='+encodeURIComponent('Wiki!A2:H5000')+'&ranges='+encodeURIComponent('メンバー!A2:I5000'));
   var r=d.valueRanges||[];
   tasks=(r[0]&&r[0].values||[]).map(function(v){return fromRow(v,TASK_FIELDS)});
@@ -946,6 +957,61 @@ async function runAiAdvisor(mode){
   }catch(e){resultEl.innerHTML='<p style="color:#dc2626">エラー: '+escapeHtml(e.message)+'</p>'}
 }
 
+/* ═══ Meeting Need Check ═══ */
+async function checkMeetingNeed(){
+  var resultEl=document.getElementById('meeting-need-result');
+  resultEl.innerHTML='<div class="loading"><div class="spinner"></div><p style="margin-top:8px">判定中...</p></div>';
+  var ctx=buildProjectContext();
+
+  // Find recent meeting wiki pages
+  var recentMeetings=wikiPages.filter(function(w){return w.category==='meeting'}).sort(function(a,b){return(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')}).slice(0,3);
+  var meetingCtx='\n\n## 直近の会議メモ\n';
+  if(recentMeetings.length){recentMeetings.forEach(function(m){meetingCtx+='### '+m.title+' ('+fmtDate(m.updatedAt||m.createdAt)+')\n'+(m.content||'').substring(0,500)+'\n\n'})}
+  else{meetingCtx+='なし\n'}
+
+  var prompt='あなたはプロジェクトマネージャー（PM）です。以下のプロジェクト状況と直近の会議内容を分析し、今週ミーティングを開催すべきか判定してください。\n\n';
+  prompt+='## 判定基準\n';
+  prompt+='- 進捗報告だけ → **スキップ推奨**（ダッシュボードを見ればわかる）\n';
+  prompt+='- ブロックが発生している → **開催推奨**\n';
+  prompt+='- 意思決定・方針変更が必要 → **開催推奨**\n';
+  prompt+='- ロール調整・リソース再配分が必要 → **開催推奨**\n';
+  prompt+='- 新しい議論・懸念が発生 → **開催推奨**\n\n';
+  prompt+='## 回答フォーマット（Markdown）\n\n';
+  prompt+='最初に大きく判定結果を書いてください：\n';
+  prompt+='- 「## ✅ スキップ推奨」または「## ⚠️ 開催推奨」\n\n';
+  prompt+='その後：\n';
+  prompt+='1. **判定理由**（なぜスキップ/開催すべきか、箇条書き）\n';
+  prompt+='2. スキップの場合 → **週次サマリ**（チームに共有できる進捗まとめ、Markdown形式）\n';
+  prompt+='3. 開催の場合 → **推奨アジェンダ**（議題リスト、所要時間の目安付き）\n\n';
+  prompt+=ctx+meetingCtx;
+
+  try{
+    var result=await callGemini(prompt);
+    if(result){
+      resultEl.innerHTML='<div class="wiki-rendered" style="padding:0">'+renderMarkdown(result)+'</div>';
+      // Offer to save as wiki
+      resultEl.innerHTML+='<div style="margin-top:12px;padding-top:12px;border-top:1px solid #c8d8f0;display:flex;gap:8px"><button class="btn-small" onclick="saveMeetingCheckAsWiki()">📝 Wikiに保存</button><button class="btn-small" style="background:#4A154B" onclick="sendMeetingCheckToSlack()">💬 Slackに送信</button></div>';
+      resultEl._lastResult=result;
+    }else{resultEl.innerHTML='<p style="color:#dc2626">判定に失敗しました</p>'}
+  }catch(e){resultEl.innerHTML='<p style="color:#dc2626">エラー: '+escapeHtml(e.message)+'</p>'}
+}
+
+async function sendMeetingCheckToSlack(){
+  var resultEl=document.getElementById('meeting-need-result');
+  var content=resultEl._lastResult;if(!content)return;
+  var pn=(orgConfig&&orgConfig.projectName)||'プロジェクト';
+  await sendToSlack('📋 *'+pn+'* ミーティング要否チェック\n\n'+content);
+}
+
+async function saveMeetingCheckAsWiki(){
+  var resultEl=document.getElementById('meeting-need-result');
+  var content=resultEl._lastResult;if(!content)return;
+  var today=new Date().toLocaleDateString('ja-JP');
+  var isSkip=content.indexOf('スキップ')>=0;
+  var obj={id:genId('W'),title:(isSkip?'週次サマリ':'ミーティングアジェンダ')+' '+today,content:content,category:'meeting',tags:'自動生成',author:'AI PM',createdAt:now(),updatedAt:now()};
+  try{await appendRow('Wiki',obj,WIKI_FIELDS);wikiPages.push(obj);showToast('Wikiに保存しました')}catch(e){showToast('エラー: '+e.message)}
+}
+
 /* ═══ Meeting → Auto Register ═══ */
 async function processMeetingNotes(){
   var raw=document.getElementById('meeting-raw-input').value.trim();
@@ -1036,13 +1102,52 @@ async function processMeetingNotes(){
   btn.disabled=false;btn.textContent='🤖 解析して自動登録';
 }
 
+/* ═══ Edit Project Name (inline) ═══ */
+function editProjectName(){
+  var current=(orgConfig&&orgConfig.projectName)||'';
+  var newName=prompt('プロジェクト名を入力:',current);
+  if(newName===null||newName.trim()===current)return;
+  newName=newName.trim()||'名称未設定';
+  if(orgConfig){
+    orgConfig.projectName=newName;
+    localStorage.setItem('choreia_track_config_cache',JSON.stringify(orgConfig));
+    document.getElementById('project-name').innerHTML=escapeHtml(newName)+'<span style="font-size:.7em;color:#5a6a7a">✏️</span>';
+    saveConfigToDrive();
+    showToast('プロジェクト名を変更しました');
+  }
+}
+
+async function saveConfigToDrive(){
+  if(!orgConfig)return;
+  try{
+    var res=await apiFetch("https://www.googleapis.com/drive/v3/files?q=name%3D'"+CONFIG_FILE_NAME+"'+and+trashed%3Dfalse&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives");
+    if(res.files&&res.files.length>0){
+      await fetch('https://www.googleapis.com/upload/drive/v3/files/'+res.files[0].id+'?uploadType=media'+(orgConfig.driveId?'&supportsAllDrives=true':''),{method:'PATCH',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify(orgConfig)});
+    }
+  }catch(e){console.error('Config save failed',e)}
+}
+
 /* ═══ Settings ═══ */
-function showSettings(){document.getElementById('user-menu').classList.remove('open');document.getElementById('setting-project-name').value=(orgConfig&&orgConfig.projectName)||'';document.getElementById('setting-gemini-key').value=getGeminiKey();document.getElementById('setting-sheet-id').value=getSheetId();document.getElementById('settings-modal').classList.add('open')}
+function showSettings(){document.getElementById('user-menu').classList.remove('open');document.getElementById('setting-project-name').value=(orgConfig&&orgConfig.projectName)||'';document.getElementById('setting-gemini-key').value=getGeminiKey();document.getElementById('setting-slack-url').value=(orgConfig&&orgConfig.slackWebhookUrl)||'';document.getElementById('setting-sheet-id').value=getSheetId();document.getElementById('settings-modal').classList.add('open')}
 async function saveSettings(){
-  var pn=document.getElementById('setting-project-name').value.trim(),gk=document.getElementById('setting-gemini-key').value.trim();
-  if(orgConfig){orgConfig.projectName=pn;orgConfig.geminiApiKey=gk;localStorage.setItem('choreia_track_config_cache',JSON.stringify(orgConfig));localStorage.setItem('choreia_track_gemini_key',gk);document.getElementById('project-name').textContent=pn||'プロジェクト';
-    try{var res=await apiFetch("https://www.googleapis.com/drive/v3/files?q=name%3D'"+CONFIG_FILE_NAME+"'+and+trashed%3Dfalse&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives");if(res.files&&res.files.length>0)await fetch('https://www.googleapis.com/upload/drive/v3/files/'+res.files[0].id+'?uploadType=media'+(orgConfig.driveId?'&supportsAllDrives=true':''),{method:'PATCH',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify(orgConfig)})}catch(e){console.error(e)}
-  }closeModal('settings-modal');showToast('保存しました');
+  var pn=document.getElementById('setting-project-name').value.trim(),gk=document.getElementById('setting-gemini-key').value.trim(),su=document.getElementById('setting-slack-url').value.trim();
+  if(orgConfig){
+    orgConfig.projectName=pn;orgConfig.geminiApiKey=gk;orgConfig.slackWebhookUrl=su;
+    localStorage.setItem('choreia_track_config_cache',JSON.stringify(orgConfig));
+    localStorage.setItem('choreia_track_gemini_key',gk);
+    document.getElementById('project-name').innerHTML=escapeHtml(pn||'プロジェクト')+'<span style="font-size:.7em;color:#5a6a7a">✏️</span>';
+    await saveConfigToDrive();
+  }
+  closeModal('settings-modal');showToast('保存しました');
+}
+
+async function sendToSlack(text){
+  var url=orgConfig&&orgConfig.slackWebhookUrl;
+  if(!url){showToast('Slack Webhook URLが設定されていません');return false}
+  try{
+    await fetch(url,{method:'POST',body:JSON.stringify({text:text})});
+    showToast('Slackに送信しました');return true;
+  }catch(e){showToast('Slack送信エラー: '+e.message);return false}
 }
 
 /* ═══ Modal ═══ */
