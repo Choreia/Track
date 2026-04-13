@@ -747,7 +747,7 @@ function renderDashboard(){
     '<div class="card" style="text-align:center;margin:0"><div style="font-size:1.8em;font-weight:700;color:#7c3aed">'+members.length+'</div><div style="font-size:.75em;color:#5a6a7a">メンバー</div></div>';
 
   // Milestones
-  var mh='';milestones.forEach(function(m){var mt=tasks.filter(function(t){return t.milestone===m.id}),md=mt.filter(function(t){return t.status==='done'}).length,p=mt.length?Math.round(md/mt.length*100):0;mh+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:.85em"><span style="font-weight:600">'+escapeHtml(m.title)+'</span><span style="color:#5a6a7a">'+p+'% ('+md+'/'+mt.length+')</span></div><div class="progress-bar"><div class="fill" style="width:'+p+'%"></div></div></div>'});
+  var mh='';milestones.slice().sort(function(a,b){return(a.dueDate||'9999').localeCompare(b.dueDate||'9999')}).forEach(function(m){var mt=tasks.filter(function(t){return t.milestone===m.id}),md=mt.filter(function(t){return t.status==='done'}).length,p=mt.length?Math.round(md/mt.length*100):0;mh+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:.85em"><span style="font-weight:600">'+escapeHtml(m.title)+'</span><span style="color:#5a6a7a">'+p+'% ('+md+'/'+mt.length+')</span></div><div class="progress-bar"><div class="fill" style="width:'+p+'%"></div></div></div>'});
   document.getElementById('dashboard-milestones').innerHTML=mh||'<div class="empty-state"><p>マイルストーンがありません</p></div>';
 
   // Member workload
@@ -805,7 +805,7 @@ async function deleteTask(){var id=document.getElementById('task-edit-id').value
 /* ═══ Milestones ═══ */
 function renderMilestones(){
   var q=(document.getElementById('ms-search').value||'').toLowerCase();
-  var f=milestones.filter(function(m){return!q||m.title.toLowerCase().indexOf(q)>=0||(m.description||'').toLowerCase().indexOf(q)>=0});
+  var f=milestones.filter(function(m){return!q||m.title.toLowerCase().indexOf(q)>=0||(m.description||'').toLowerCase().indexOf(q)>=0}).sort(function(a,b){return(a.dueDate||'9999').localeCompare(b.dueDate||'9999')});
   if(!f.length){document.getElementById('milestones-container').innerHTML='<div class="empty-state"><div class="icon">🎯</div><p>マイルストーンがありません</p><button class="btn-small" onclick="openMilestoneModal()">+ 追加</button></div>';return}
   var h='';f.forEach(function(m){var mt=tasks.filter(function(t){return t.milestone===m.id}),md=mt.filter(function(t){return t.status==='done'}).length,p=mt.length?Math.round(md/mt.length*100):0;var sl=m.status==='completed'?'完了':m.status==='planned'?'計画中':'進行中';h+='<div class="milestone-card" onclick="openMilestoneModal(milestones.find(function(x){return x.id===\''+m.id+'\'}))">';h+='<div class="ms-title">'+escapeHtml(m.title)+'</div><div class="ms-meta">'+escapeHtml(m.description||'')+'</div>';h+='<div class="ms-stats"><span>📊 '+p+'% ('+md+'/'+mt.length+')</span><span>📅 '+fmtDate(m.dueDate)+'</span><span class="status-badge" style="background:#e0e8f0">'+sl+'</span></div>';h+='<div class="progress-bar" style="margin-top:8px"><div class="fill" style="width:'+p+'%"></div></div></div>'});
   document.getElementById('milestones-container').innerHTML=h;
