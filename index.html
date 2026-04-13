@@ -163,10 +163,27 @@ textarea.form-input{resize:vertical;min-height:80px}
 .meeting-input{border:2px dashed #c0d0e0;border-radius:12px;padding:20px;margin-bottom:16px;background:#fafcfe;text-align:center}
 .meeting-input textarea{min-height:150px;margin-top:12px}
 
+/* Project list */
+.project-list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.project-list-header h2{font-size:1.2em;color:#1a2430}
+.project-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.project-card{background:#fff;border-radius:16px;padding:20px;box-shadow:0 1px 4px rgba(26,36,48,.06);cursor:pointer;transition:all .2s;border:2px solid transparent}
+.project-card:hover{border-color:#1a5a8a;box-shadow:0 4px 12px rgba(26,90,138,.12)}
+.project-card:active{transform:scale(.98)}
+.project-card .pj-name{font-weight:700;font-size:1.05em;margin-bottom:4px}
+.project-card .pj-meta{font-size:.78em;color:#5a6a7a;margin-bottom:10px}
+.project-card .pj-stats{display:flex;gap:12px;font-size:.78em}
+.project-card .pj-stat{display:flex;align-items:center;gap:4px;color:#3a4a5a}
+.project-card .pj-stat strong{color:#1a5a8a}
+.project-card-new{background:#f8fbff;border:2px dashed #c0d0e0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:140px;color:#5a6a7a;font-size:.9em;font-weight:600}
+.project-card-new:hover{border-color:#1a5a8a;color:#1a5a8a;background:#f0f6ff}
+.project-card-new .plus{font-size:2em;margin-bottom:4px}
+
 @media(max-width:600px){
   .kanban-col{min-width:180px}
   .modal{padding:16px}
   .member-card{flex-direction:column;align-items:center;text-align:center}
+  .project-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -209,6 +226,16 @@ textarea.form-input{resize:vertical;min-height:80px}
   <!-- Loading -->
   <div id="view-loading" style="display:none"><div class="loading"><div class="spinner"></div><p style="margin-top:12px">読み込み中...</p></div></div>
 
+  <!-- Project List -->
+  <div id="view-projects" style="display:none">
+    <div class="project-list-header">
+      <h2>プロジェクト一覧</h2>
+    </div>
+    <div class="project-grid" id="project-grid">
+      <div class="loading"><div class="spinner"></div><p style="margin-top:8px">プロジェクトを検索中...</p></div>
+    </div>
+  </div>
+
   <!-- Setup -->
   <div id="view-setup" style="display:none">
     <div class="setup-view"><div class="card">
@@ -231,6 +258,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <!-- Main -->
   <div id="view-main" style="display:none">
     <div id="project-bar" style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:#e0e8f0;border-radius:12px;margin-bottom:16px;font-size:.85em">
+      <button class="btn-icon" onclick="backToProjects()" title="プロジェクト一覧" style="font-size:1.1em">&larr;</button>
       <span style="font-size:1.2em">📋</span>
       <div style="flex:1">
         <div style="font-size:.75em;color:#5a6a7a">プロジェクト</div>
@@ -499,7 +527,7 @@ function applyQueryState(){
 }
 
 /* ═══ Views ═══ */
-function showView(n){['welcome','loading','setup','main'].forEach(function(v){document.getElementById('view-'+v).style.display=v===n?'':'none'})}
+function showView(n){['welcome','loading','setup','main','projects'].forEach(function(v){document.getElementById('view-'+v).style.display=v===n?'':'none'})}
 function switchTab(tab,noUrl){
   currentTab=tab;if(!noUrl)setQ({tab:tab,id:'',q:''});
   ['dashboard','tasks','milestones','wiki','members','ai'].forEach(function(t){
@@ -536,17 +564,100 @@ function toggleUserMenu(){document.getElementById('user-menu').classList.toggle(
 document.addEventListener('click',function(e){if(!e.target.closest('.auth-area'))document.getElementById('user-menu').classList.remove('open')});
 
 /* ═══ Config ═══ */
+var allProjects=[];
+
 async function loadConfig(){
   showView('loading');
   var q=getQ();
+  // Direct link with sheet ID → go straight to project
   if(q.s){orgConfig={spreadsheetId:q.s};try{await loadAllData();showView('main');applyQueryState();return}catch(e){console.error(e)}}
-  var cached=localStorage.getItem('choreia_track_config_cache');
-  if(cached){try{orgConfig=JSON.parse(cached);setQ({s:orgConfig.spreadsheetId});loadAllData().then(function(){showView('main');applyQueryState()});return}catch(e){}}
+  // No direct link → show project list
+  showView('projects');
+  loadProjectList();
+}
+
+async function loadProjectList(){
+  var grid=document.getElementById('project-grid');
+  grid.innerHTML='<div class="loading"><div class="spinner"></div><p style="margin-top:8px">プロジェクトを検索中...</p></div>';
+  allProjects=[];
   try{
-    var res=await apiFetch("https://www.googleapis.com/drive/v3/files?q=name%3D'"+CONFIG_FILE_NAME+"'+and+trashed%3Dfalse&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives");
-    if(res.files&&res.files.length>0){var cfg=await apiFetch('https://www.googleapis.com/drive/v3/files/'+res.files[0].id+'?alt=media');orgConfig=cfg;localStorage.setItem('choreia_track_config_cache',JSON.stringify(cfg));setQ({s:orgConfig.spreadsheetId});await loadAllData();showView('main');applyQueryState();return}
-  }catch(e){console.error(e)}
+    var res=await apiFetch("https://www.googleapis.com/drive/v3/files?q=name%3D'"+CONFIG_FILE_NAME+"'+and+trashed%3Dfalse&fields=files(id,name,modifiedTime,parents)&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives&pageSize=50&orderBy=modifiedTime desc");
+    var files=res.files||[];
+    // Load each config to get project details
+    var promises=files.map(function(f){
+      return apiFetch('https://www.googleapis.com/drive/v3/files/'+f.id+'?alt=media').then(function(cfg){
+        cfg._fileId=f.id;cfg._modifiedTime=f.modifiedTime;return cfg;
+      }).catch(function(){return null});
+    });
+    var configs=await Promise.all(promises);
+    allProjects=configs.filter(Boolean);
+
+    // Now fetch quick stats for each project (task counts)
+    var statsPromises=allProjects.map(function(cfg){
+      if(!cfg.spreadsheetId)return Promise.resolve(null);
+      return apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+cfg.spreadsheetId+'/values/'+encodeURIComponent('タスク!D2:D5000')).then(function(d){
+        var statuses=(d.values||[]).map(function(r){return r[0]||''});
+        return{total:statuses.length,done:statuses.filter(function(s){return s==='done'}).length,inProgress:statuses.filter(function(s){return s==='in_progress'}).length};
+      }).catch(function(){return{total:0,done:0,inProgress:0}});
+    });
+    var allStats=await Promise.all(statsPromises);
+
+    renderProjectGrid(allProjects,allStats);
+  }catch(e){
+    console.error(e);
+    grid.innerHTML='<div class="empty-state"><div class="icon">📋</div><p>プロジェクトの読み込みに失敗しました</p></div>';
+    renderProjectGrid([],[]);
+  }
+}
+
+function renderProjectGrid(projects,stats){
+  var grid=document.getElementById('project-grid');
+  var h='';
+  projects.forEach(function(cfg,i){
+    var st=stats[i]||{total:0,done:0,inProgress:0};
+    var pct=st.total?Math.round(st.done/st.total*100):0;
+    var name=cfg.projectName||'名称未設定';
+    var admin=cfg.adminName||cfg.admin||'';
+    var folder=cfg.folderName||'';
+    var drive=cfg.driveName||'マイドライブ';
+    var modified=cfg._modifiedTime?fmtDate(cfg._modifiedTime):'';
+    h+='<div class="project-card" onclick="openProject(\''+escapeHtml(cfg.spreadsheetId)+'\',' +i+')">';
+    h+='<div class="pj-name">📋 '+escapeHtml(name)+'</div>';
+    h+='<div class="pj-meta">';
+    if(drive)h+=escapeHtml(drive);
+    if(folder)h+=' / '+escapeHtml(folder);
+    if(admin)h+=' · '+escapeHtml(admin);
+    h+='</div>';
+    h+='<div class="pj-stats">';
+    h+='<div class="pj-stat">タスク <strong>'+st.total+'</strong></div>';
+    h+='<div class="pj-stat">完了 <strong>'+pct+'%</strong></div>';
+    h+='<div class="pj-stat">進行中 <strong>'+st.inProgress+'</strong></div>';
+    h+='</div>';
+    if(st.total>0){h+='<div class="progress-bar" style="margin-top:10px"><div class="fill" style="width:'+pct+'%"></div></div>'}
+    h+='</div>';
+  });
+  // New project card
+  h+='<div class="project-card project-card-new" onclick="startNewProject()"><div class="plus">+</div>新しいプロジェクト</div>';
+  grid.innerHTML=h;
+}
+
+function openProject(sheetId,idx){
+  var cfg=allProjects[idx]||{spreadsheetId:sheetId};
+  orgConfig=cfg;
+  localStorage.setItem('choreia_track_config_cache',JSON.stringify(cfg));
+  setQ({s:sheetId});
+  showView('loading');
+  loadAllData().then(function(){showView('main');applyQueryState()}).catch(function(e){console.error(e);showToast('読み込みに失敗: '+e.message);showView('projects')});
+}
+
+function startNewProject(){
   showView('setup');loadDrives();
+}
+
+function backToProjects(){
+  orgConfig=null;tasks=[];milestones=[];wikiPages=[];members=[];
+  setQ({s:'',tab:'',v:'',m:'',id:'',q:''});
+  showView('projects');loadProjectList();
 }
 
 /* ═══ Setup ═══ */
@@ -575,7 +686,7 @@ async function selectThisFolder(){
     orgConfig=cfg;localStorage.setItem('choreia_track_config_cache',JSON.stringify(cfg));setQ({s:ssId});
     tasks=[];milestones=[];wikiPages=[];members=[];
     showView('main');renderDashboard();showToast('プロジェクトを作成しました');
-  }catch(e){console.error(e);showToast('作成に失敗: '+e.message);showView('setup')}
+  }catch(e){console.error(e);showToast('作成に失敗: '+e.message);showView('projects')}
 }
 
 /* ═══ Data Loading ═══ */
