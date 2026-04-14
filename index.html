@@ -165,6 +165,26 @@ textarea.form-input{resize:vertical;min-height:80px}
 .meeting-input{border:2px dashed #c0d0e0;border-radius:12px;padding:20px;margin-bottom:16px;background:#fafcfe;text-align:center}
 .meeting-input textarea{min-height:150px;margin-top:12px}
 
+/* Timeline / Gantt */
+.timeline-table{border-collapse:collapse;min-width:100%}
+.timeline-table th,.timeline-table td{padding:0;vertical-align:middle;white-space:nowrap}
+.timeline-header th{font-size:.65em;font-weight:600;color:#5a6a7a;text-align:center;padding:4px 0;border-bottom:1px solid #d0d8e0;min-width:36px}
+.timeline-header th.today{color:#1a5a8a;background:#e8f0ff}
+.timeline-header th.weekend{color:#b0b8c0;background:#f8f9fa}
+.timeline-row-label{position:sticky;left:0;background:#fff;z-index:2;padding:6px 12px 6px 0;font-size:.8em;font-weight:600;color:#1a2430;max-width:180px;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid #f0f4f8}
+.timeline-group-label{position:sticky;left:0;background:#f0f4f8;z-index:2;padding:8px 12px;font-size:.78em;font-weight:700;color:#3a4a5a;border-bottom:1px solid #d0d8e0;text-transform:uppercase;letter-spacing:.5px}
+.timeline-cell{border-bottom:1px solid #f0f4f8;height:32px;position:relative;min-width:36px}
+.timeline-cell.today{background:#e8f0ff22}
+.timeline-cell.weekend{background:#f8f9fa}
+.timeline-bar{position:absolute;top:6px;height:20px;border-radius:4px;min-width:8px;cursor:pointer;transition:opacity .15s;display:flex;align-items:center;padding:0 6px;font-size:.65em;font-weight:600;color:#fff;overflow:hidden;white-space:nowrap}
+.timeline-bar:hover{opacity:.85}
+.timeline-bar.todo{background:#2563eb}.timeline-bar.in_progress{background:#d97706}.timeline-bar.review{background:#7c3aed}.timeline-bar.done{background:#059669}.timeline-bar.blocked{background:#dc2626}
+.timeline-milestone-marker{position:absolute;top:4px;width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-bottom:16px solid #1a5a8a;cursor:pointer;z-index:1}
+.timeline-today-line{position:absolute;top:0;bottom:0;width:2px;background:#dc2626;z-index:3;pointer-events:none}
+.timeline-legend{display:flex;gap:12px;margin-top:12px;font-size:.75em;flex-wrap:wrap}
+.timeline-legend span{display:flex;align-items:center;gap:4px}
+.timeline-legend .dot{width:12px;height:12px;border-radius:3px}
+
 /* Project list */
 .project-list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .project-list-header h2{font-size:1.2em;color:#1a2430}
@@ -275,6 +295,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       <button class="tab" data-tab="milestones" onclick="switchTab('milestones')">マイルストーン</button>
       <button class="tab" data-tab="wiki" onclick="switchTab('wiki')">Wiki</button>
       <button class="tab" data-tab="members" onclick="switchTab('members')">メンバー</button>
+      <button class="tab" data-tab="timeline" onclick="switchTab('timeline')">タイムライン</button>
       <button class="tab" data-tab="ai" onclick="switchTab('ai')">AI PM</button>
     </div>
 
@@ -341,6 +362,21 @@ textarea.form-input{resize:vertical;min-height:80px}
     </div>
 
     <!-- AI PM -->
+    <!-- Timeline -->
+    <div id="panel-timeline" style="display:none">
+      <div class="toolbar">
+        <select class="form-input" style="width:auto;padding:8px 10px" id="timeline-group" onchange="renderTimeline()">
+          <option value="milestone">マイルストーン別</option>
+          <option value="assignee">担当者別</option>
+          <option value="status">ステータス別</option>
+        </select>
+        <div style="flex:1"></div>
+        <button class="btn-icon" onclick="timelineScrollLeft()" title="前へ">&larr;</button>
+        <button class="btn-icon" onclick="timelineScrollRight()" title="次へ">&rarr;</button>
+      </div>
+      <div class="card" style="overflow-x:auto;padding:12px" id="timeline-container"></div>
+    </div>
+
     <div id="panel-ai" style="display:none">
       <!-- Meeting Summary Input -->
       <div class="card">
@@ -541,7 +577,7 @@ function copyWikiShareUrl(){if(currentWikiId)navigator.clipboard.writeText(build
 
 function applyQueryState(){
   var q=getQ();
-  if(q.tab&&['dashboard','tasks','milestones','wiki','members','ai'].indexOf(q.tab)>=0)switchTab(q.tab,true);
+  if(q.tab&&['dashboard','tasks','milestones','wiki','members','timeline','ai'].indexOf(q.tab)>=0)switchTab(q.tab,true);
   if(q.v)setTaskView(q.v,true);
   if(q.m){var sel=document.getElementById('task-milestone-filter');if(sel)sel.value=q.m}
   if(q.q){var si=document.getElementById(currentTab==='wiki'?'wiki-search':'task-search');if(si)si.value=q.q}
@@ -553,7 +589,7 @@ function applyQueryState(){
 function showView(n){['welcome','loading','setup','main','projects'].forEach(function(v){document.getElementById('view-'+v).style.display=v===n?'':'none'})}
 function switchTab(tab,noUrl){
   currentTab=tab;if(!noUrl)setQ({tab:tab,id:'',q:''});
-  ['dashboard','tasks','milestones','wiki','members','ai'].forEach(function(t){
+  ['dashboard','tasks','milestones','wiki','members','timeline','ai'].forEach(function(t){
     var te=document.querySelector('.tab[data-tab="'+t+'"]'),pe=document.getElementById('panel-'+t);
     if(te)te.classList.toggle('active',tab===t);if(pe)pe.style.display=tab===t?'':'none';
   });
@@ -562,6 +598,7 @@ function switchTab(tab,noUrl){
   if(tab==='milestones')renderMilestones();
   if(tab==='wiki'){closeWikiDetail();renderWikiList()}
   if(tab==='members')renderMembers();
+  if(tab==='timeline')renderTimeline();
 }
 
 /* ═══ API ═══ */
@@ -910,6 +947,164 @@ function renderMarkdown(text){
   h=h.replace(/<p><\/p>/g,'');
   return h;
 }
+
+/* ═══ Timeline ═══ */
+function renderTimeline(){
+  var container=document.getElementById('timeline-container');
+  var groupBy=document.getElementById('timeline-group').value;
+
+  // Collect all tasks with dates
+  var items=tasks.filter(function(t){return t.dueDate||t.createdAt});
+
+  if(!items.length){container.innerHTML='<div class="empty-state"><div class="icon">📅</div><p>日付のあるタスクがありません</p></div>';return}
+
+  // Determine date range
+  var allDates=[];
+  items.forEach(function(t){
+    if(t.dueDate)allDates.push(t.dueDate);
+    if(t.createdAt)allDates.push(t.createdAt.substring(0,10));
+  });
+  milestones.forEach(function(m){if(m.dueDate)allDates.push(m.dueDate)});
+  allDates.sort();
+
+  var today=new Date();var todayStr=today.toISOString().substring(0,10);
+  var minDate=allDates[0]||todayStr;
+  var maxDate=allDates[allDates.length-1]||todayStr;
+
+  // Extend range: 7 days before min, 14 days after max
+  var startDate=new Date(minDate);startDate.setDate(startDate.getDate()-7);
+  var endDate=new Date(maxDate);endDate.setDate(endDate.getDate()+14);
+
+  // Generate day columns
+  var days=[];
+  var d=new Date(startDate);
+  while(d<=endDate){days.push(new Date(d));d.setDate(d.getDate()+1)}
+
+  // Group tasks
+  var groups=[];
+  if(groupBy==='milestone'){
+    var byMs={};var noMs=[];
+    items.forEach(function(t){
+      if(t.milestone){if(!byMs[t.milestone])byMs[t.milestone]=[];byMs[t.milestone].push(t)}
+      else noMs.push(t);
+    });
+    milestones.slice().sort(function(a,b){return(a.dueDate||'9999').localeCompare(b.dueDate||'9999')}).forEach(function(m){
+      if(byMs[m.id])groups.push({label:'🎯 '+m.title+(m.dueDate?' ('+fmtDate(m.dueDate)+')':''),tasks:byMs[m.id],milestone:m});
+    });
+    if(noMs.length)groups.push({label:'マイルストーンなし',tasks:noMs,milestone:null});
+  }else if(groupBy==='assignee'){
+    var byA={};
+    items.forEach(function(t){var a=t.assignee||'未割当';if(!byA[a])byA[a]=[];byA[a].push(t)});
+    Object.keys(byA).sort().forEach(function(a){groups.push({label:'👤 '+a,tasks:byA[a],milestone:null})});
+  }else{
+    TASK_STATUSES.forEach(function(s){
+      var st=items.filter(function(t){return t.status===s.key});
+      if(st.length)groups.push({label:s.label,tasks:st,milestone:null});
+    });
+  }
+
+  // Render
+  var h='<div style="position:relative;overflow-x:auto" id="timeline-scroll">';
+  h+='<table class="timeline-table">';
+
+  // Header row: months
+  var months={};days.forEach(function(d,i){var key=d.getFullYear()+'-'+(d.getMonth()+1);if(!months[key])months[key]={start:i,count:0,label:(d.getMonth()+1)+'月'};months[key].count++});
+  h+='<tr><th class="timeline-row-label" style="border-bottom:none"></th>';
+  Object.keys(months).forEach(function(k){var m=months[k];h+='<th colspan="'+m.count+'" style="font-size:.7em;color:#1a5a8a;padding:4px 0;text-align:left;border-bottom:none">'+m.label+'</th>'});
+  h+='</tr>';
+
+  // Header row: days
+  h+='<tr class="timeline-header"><th class="timeline-row-label" style="min-width:160px"></th>';
+  days.forEach(function(d){
+    var ds=d.toISOString().substring(0,10);
+    var dow=d.getDay();
+    var isToday=ds===todayStr;
+    var isWeekend=dow===0||dow===6;
+    var cls='';if(isToday)cls='today';else if(isWeekend)cls='weekend';
+    var dayLabel=d.getDate();
+    h+='<th class="'+cls+'" title="'+ds+'">'+dayLabel+'</th>';
+  });
+  h+='</tr>';
+
+  // Data rows
+  groups.forEach(function(g){
+    // Group header
+    h+='<tr><td class="timeline-group-label" colspan="'+(days.length+1)+'">'+escapeHtml(g.label)+' ('+g.tasks.length+')</td></tr>';
+
+    g.tasks.forEach(function(t){
+      var startStr=t.createdAt?t.createdAt.substring(0,10):t.dueDate;
+      var endStr=t.dueDate||startStr;
+      var startIdx=-1,endIdx=-1;
+
+      days.forEach(function(d,i){
+        var ds=d.toISOString().substring(0,10);
+        if(ds===startStr&&startIdx<0)startIdx=i;
+        if(ds===endStr)endIdx=i;
+      });
+
+      // Clamp to visible range
+      if(startIdx<0)startIdx=0;
+      if(endIdx<0)endIdx=startIdx;
+      if(endIdx<startIdx)endIdx=startIdx;
+
+      h+='<tr>';
+      h+='<td class="timeline-row-label" title="'+escapeHtml(t.title)+'"><span class="priority-dot '+t.priority+'"></span>'+escapeHtml(t.title)+'</td>';
+
+      for(var i=0;i<days.length;i++){
+        var ds=days[i].toISOString().substring(0,10);
+        var dow=days[i].getDay();
+        var isToday=ds===todayStr;
+        var isWeekend=dow===0||dow===6;
+        var cls='timeline-cell';if(isToday)cls+=' today';else if(isWeekend)cls+=' weekend';
+        h+='<td class="'+cls+'">';
+        if(i===startIdx){
+          var span=endIdx-startIdx+1;
+          var widthPx=span*36;
+          h+='<div class="timeline-bar '+t.status+'" style="width:'+widthPx+'px" onclick="openTaskById(\''+t.id+'\')" title="'+escapeHtml(t.title)+' ('+escapeHtml(t.assignee||'')+')">'+escapeHtml(t.title)+'</div>';
+        }
+        h+='</td>';
+      }
+      h+='</tr>';
+    });
+
+    // Milestone marker row
+    if(g.milestone&&g.milestone.dueDate){
+      var msIdx=-1;
+      days.forEach(function(d,i){if(d.toISOString().substring(0,10)===g.milestone.dueDate)msIdx=i});
+      if(msIdx>=0){
+        h+='<tr><td class="timeline-row-label" style="font-size:.7em;color:#1a5a8a">◆ '+escapeHtml(g.milestone.title)+'</td>';
+        for(var i=0;i<days.length;i++){
+          var ds=days[i].toISOString().substring(0,10);
+          var cls='timeline-cell';if(ds===todayStr)cls+=' today';else if(days[i].getDay()===0||days[i].getDay()===6)cls+=' weekend';
+          h+='<td class="'+cls+'">';
+          if(i===msIdx)h+='<div class="timeline-milestone-marker" title="'+escapeHtml(g.milestone.title)+' 期日"></div>';
+          h+='</td>';
+        }
+        h+='</tr>';
+      }
+    }
+  });
+
+  h+='</table></div>';
+
+  // Legend
+  h+='<div class="timeline-legend">';
+  TASK_STATUSES.forEach(function(s){h+='<span><span class="dot" style="background:'+s.color+'"></span>'+s.label+'</span>'});
+  h+='<span><span style="display:inline-block;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #1a5a8a"></span>マイルストーン期日</span>';
+  h+='</div>';
+
+  container.innerHTML=h;
+
+  // Auto-scroll to today
+  var scrollEl=document.getElementById('timeline-scroll');
+  if(scrollEl){
+    var todayIdx=-1;days.forEach(function(d,i){if(d.toISOString().substring(0,10)===todayStr)todayIdx=i});
+    if(todayIdx>3)scrollEl.scrollLeft=(todayIdx-3)*36;
+  }
+}
+
+function timelineScrollLeft(){var el=document.getElementById('timeline-scroll');if(el)el.scrollLeft-=36*7}
+function timelineScrollRight(){var el=document.getElementById('timeline-scroll');if(el)el.scrollLeft+=36*7}
 
 /* ═══ Members ═══ */
 function renderMembers(){
