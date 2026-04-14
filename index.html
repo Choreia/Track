@@ -68,9 +68,11 @@ textarea.form-input{resize:vertical;min-height:80px}
 .kanban-col h3 .count{background:#d0d8e0;padding:2px 8px;border-radius:10px;font-size:.85em}
 .kanban-card{background:#fff;border-radius:10px;padding:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer;transition:transform .1s;border-left:3px solid transparent}
 .kanban-card:active{transform:scale(.98)}
+.kanban-card.dragging{opacity:.4;transform:scale(.95)}
 .kanban-card .card-title{font-weight:600;font-size:.9em;margin-bottom:4px}
 .kanban-card .card-meta{font-size:.75em;color:#5a6a7a}
 .kanban-card.high{border-left-color:#dc2626}.kanban-card.medium{border-left-color:#d97706}.kanban-card.low{border-left-color:#2563eb}
+.kanban-col.drag-over{background:#e0ecff;border:2px dashed #1a5a8a}
 .progress-bar{height:8px;background:#e0e8f0;border-radius:4px;overflow:hidden;margin-top:6px}
 .progress-bar .fill{height:100%;background:linear-gradient(90deg,#1a5a8a,#2d8ac4);border-radius:4px;transition:width .3s}
 .milestone-card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer;transition:transform .1s}
@@ -781,7 +783,58 @@ function renderDashboard(){
 function setTaskView(v,noUrl){taskView=v;if(!noUrl)setQ({v:v});document.getElementById('btn-view-kanban').classList.toggle('active',v==='kanban');document.getElementById('btn-view-list').classList.toggle('active',v==='list');document.getElementById('tasks-kanban').style.display=v==='kanban'?'':'none';document.getElementById('tasks-list').style.display=v==='list'?'':'none';renderTasks()}
 function getFilteredTasks(){var q=(document.getElementById('task-search').value||'').toLowerCase(),mf=document.getElementById('task-milestone-filter').value,af=document.getElementById('task-assignee-filter').value;return tasks.filter(function(t){if(mf&&t.milestone!==mf)return false;if(af&&t.assignee!==af)return false;if(q&&t.title.toLowerCase().indexOf(q)<0&&(t.description||'').toLowerCase().indexOf(q)<0&&(t.tags||'').toLowerCase().indexOf(q)<0)return false;return true})}
 function renderTasks(){var f=getFilteredTasks();renderKanban(f);renderTaskList(f)}
-function renderKanban(list){var h='<div class="kanban">';TASK_STATUSES.forEach(function(s){var ins=list.filter(function(t){return t.status===s.key});h+='<div class="kanban-col"><h3>'+s.label+' <span class="count">'+ins.length+'</span></h3>';ins.forEach(function(t){var mn='';if(t.milestone){var ms=milestones.find(function(m){return m.id===t.milestone});if(ms)mn=ms.title}h+='<div class="kanban-card '+t.priority+'" onclick="openTaskById(\''+t.id+'\')"><div class="card-title">'+escapeHtml(t.title)+'</div><div class="card-meta">';if(t.assignee)h+=escapeHtml(t.assignee);if(t.dueDate)h+=(t.assignee?' · ':'')+fmtDate(t.dueDate);if(mn)h+='<br>🎯 '+escapeHtml(mn);h+='</div></div>'});h+='</div>'});h+='</div>';document.getElementById('tasks-kanban').innerHTML=h}
+function renderKanban(list){
+  var h='<div class="kanban">';
+  TASK_STATUSES.forEach(function(s){
+    var ins=list.filter(function(t){return t.status===s.key});
+    h+='<div class="kanban-col" data-status="'+s.key+'" ondragover="onColDragOver(event)" ondragleave="onColDragLeave(event)" ondrop="onColDrop(event)">';
+    h+='<h3>'+s.label+' <span class="count">'+ins.length+'</span></h3>';
+    ins.forEach(function(t){
+      var mn='';if(t.milestone){var ms=milestones.find(function(m){return m.id===t.milestone});if(ms)mn=ms.title}
+      h+='<div class="kanban-card '+t.priority+'" draggable="true" data-task-id="'+t.id+'" ondragstart="onCardDragStart(event)" ondragend="onCardDragEnd(event)" onclick="openTaskById(\''+t.id+'\')">';
+      h+='<div class="card-title">'+escapeHtml(t.title)+'</div><div class="card-meta">';
+      if(t.assignee)h+=escapeHtml(t.assignee);
+      if(t.dueDate)h+=(t.assignee?' · ':'')+fmtDate(t.dueDate);
+      if(mn)h+='<br>🎯 '+escapeHtml(mn);
+      h+='</div></div>';
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  document.getElementById('tasks-kanban').innerHTML=h;
+}
+
+var dragTaskId=null;
+function onCardDragStart(e){
+  dragTaskId=e.target.getAttribute('data-task-id');
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',dragTaskId);
+}
+function onCardDragEnd(e){e.target.classList.remove('dragging');dragTaskId=null}
+function onColDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';var col=e.target.closest('.kanban-col');if(col)col.classList.add('drag-over')}
+function onColDragLeave(e){var col=e.target.closest('.kanban-col');if(col)col.classList.remove('drag-over')}
+async function onColDrop(e){
+  e.preventDefault();
+  var col=e.target.closest('.kanban-col');if(col)col.classList.remove('drag-over');
+  var newStatus=col?col.getAttribute('data-status'):'';
+  var taskId=e.dataTransfer.getData('text/plain')||dragTaskId;
+  if(!taskId||!newStatus)return;
+  var t=tasks.find(function(x){return x.id===taskId});
+  if(!t||t.status===newStatus)return;
+  var oldStatus=t.status;
+  t.status=newStatus;t.updatedAt=now();
+  renderTasks();renderDashboard();
+  var st=TASK_STATUSES.find(function(s){return s.key===newStatus});
+  showToast(escapeHtml(t.title)+' → '+(st?st.label:newStatus));
+  try{
+    var idx=tasks.indexOf(t);
+    if(idx>=0)await updateRow('タスク',idx,t,TASK_FIELDS);
+  }catch(err){
+    t.status=oldStatus;renderTasks();
+    showToast('更新に失敗: '+err.message);
+  }
+}
 function renderTaskList(list){if(!list.length){document.getElementById('tasks-list').innerHTML='<div class="empty-state"><div class="icon">✅</div><p>タスクがありません</p></div>';return}var h='<table class="data-table"><thead><tr><th></th><th>タイトル</th><th>ステータス</th><th>担当</th><th>期日</th><th>MS</th></tr></thead><tbody>';list.forEach(function(t){var st=TASK_STATUSES.find(function(s){return s.key===t.status})||{label:'',color:'#888'};var mn='-';if(t.milestone){var ms=milestones.find(function(m){return m.id===t.milestone});if(ms)mn=ms.title}h+='<tr onclick="openTaskById(\''+t.id+'\')"><td><span class="priority-dot '+t.priority+'"></span></td><td style="font-weight:600">'+escapeHtml(t.title)+'</td><td><span class="status-badge" style="background:'+st.color+'22;color:'+st.color+'">'+st.label+'</span></td><td>'+escapeHtml(t.assignee||'-')+'</td><td>'+fmtDate(t.dueDate)+'</td><td>'+escapeHtml(mn)+'</td></tr>'});h+='</tbody></table>';document.getElementById('tasks-list').innerHTML=h}
 
 function openTaskModal(t){
