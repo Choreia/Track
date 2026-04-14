@@ -523,7 +523,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 <script>
 /* ═══ Config ═══ */
 var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
-var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets';
+var SCOPES='openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets';
 var CONFIG_FILE_NAME='choreia-track-config.json';
 
 /* ═══ State ═══ */
@@ -618,7 +618,18 @@ async function loadUserInfo(){
     document.getElementById('user-menu-name').textContent=i.name;
     document.getElementById('user-menu-email').textContent=i.email;
     await loadConfig();
-  }catch(e){console.error(e);showView('welcome')}
+  }catch(e){
+    console.error('loadUserInfo failed',e);
+    // Token may be expired/invalid — clear and retry
+    localStorage.removeItem('choreia_track_token');
+    accessToken='';
+    showView('welcome');
+    if(e.message&&e.message.indexOf('401')>=0){
+      showToast('セッションが切れました。再度ログインしてください');
+    }else{
+      showToast('ログインエラー: '+e.message);
+    }
+  }
 }
 function toggleUserMenu(){document.getElementById('user-menu').classList.toggle('open')}
 document.addEventListener('click',function(e){if(!e.target.closest('.auth-area'))document.getElementById('user-menu').classList.remove('open')});
