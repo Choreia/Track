@@ -452,6 +452,16 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="form-group"><label>カスタムロール（カンマ区切り）</label><input class="form-input" id="member-custom-roles" placeholder="データサイエンティスト, DevOps"></div>
     <div class="form-group"><label>稼働率（%）</label><input class="form-input" type="number" id="member-capacity" min="0" max="100" value="100"></div>
     <div class="form-group"><label>メモ</label><textarea class="form-input" id="member-memo" rows="2"></textarea></div>
+    <div class="form-group" id="member-share-group">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="member-share-drive" checked>
+        スプレッドシートの編集権限を共有する
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px;font-size:.85em;color:#5a6a7a">
+        <input type="checkbox" id="member-share-notify" checked>
+        通知メールを送信する
+      </label>
+    </div>
     <input type="hidden" id="member-edit-id">
     <div style="margin-top:16px;display:flex;gap:8px">
       <button class="btn-primary" style="flex:1" onclick="saveMember()">保存</button>
@@ -944,6 +954,10 @@ function openMemberModal(m){
     cbHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:.85em;cursor:pointer"><input type="checkbox" class="member-role-cb" value="'+r.key+'" '+checked+'><span class="role-tag" style="background:'+r.color+'22;color:'+r.color+'">'+r.label+'</span></label>';
   });
   document.getElementById('member-roles-checkboxes').innerHTML=cbHtml;
+  // Show share options only for new members or when email changes
+  document.getElementById('member-share-group').style.display=m?'none':'';
+  document.getElementById('member-share-drive').checked=true;
+  document.getElementById('member-share-notify').checked=true;
   document.getElementById('member-modal').classList.add('open');
 }
 
@@ -952,7 +966,53 @@ async function saveMember(){
   var rolesArr=[];document.querySelectorAll('.member-role-cb:checked').forEach(function(cb){rolesArr.push(cb.value)});
   var obj={id:id||genId('U'),name:document.getElementById('member-name').value.trim(),email:document.getElementById('member-email').value.trim(),roles:rolesArr.join(','),customRoles:document.getElementById('member-custom-roles').value.trim(),capacity:document.getElementById('member-capacity').value,memo:document.getElementById('member-memo').value.trim(),createdAt:id?(members.find(function(m){return m.id===id})||{}).createdAt||now():now(),updatedAt:now()};
   if(!obj.name){showToast('名前を入力');return}
-  try{if(id){var i=members.findIndex(function(m){return m.id===id});if(i>=0){await updateRow('メンバー',i,obj,MEMBER_FIELDS);members[i]=obj}}else{await appendRow('メンバー',obj,MEMBER_FIELDS);members.push(obj)}closeModal('member-modal');populateFilters();renderMembers();renderDashboard();showToast(id?'更新':'追加')}catch(e){showToast('エラー: '+e.message)}
+  var isNew=!id;
+  var shareDrive=document.getElementById('member-share-drive').checked;
+  var shareNotify=document.getElementById('member-share-notify').checked;
+  try{
+    if(id){var i=members.findIndex(function(m){return m.id===id});if(i>=0){await updateRow('メンバー',i,obj,MEMBER_FIELDS);members[i]=obj}}
+    else{await appendRow('メンバー',obj,MEMBER_FIELDS);members.push(obj)}
+    // Share spreadsheet with new member
+    if(isNew&&shareDrive&&obj.email){
+      await shareDriveWithMember(obj.email,shareNotify);
+    }
+    closeModal('member-modal');populateFilters();renderMembers();renderDashboard();
+    var msg=id?'更新':'追加';
+    if(isNew&&shareDrive&&obj.email)msg+='（ドライブ共有済）';
+    showToast(msg);
+  }catch(e){showToast('エラー: '+e.message)}
+}
+
+async function shareDriveWithMember(email,sendNotification){
+  var sid=getSheetId();if(!sid||!email)return;
+  try{
+    await apiFetch('https://www.googleapis.com/drive/v3/files/'+sid+'/permissions'+(orgConfig&&orgConfig.driveId?'?supportsAllDrives=true':''),{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        role:'writer',
+        type:'user',
+        emailAddress:email
+      })
+    });
+    // Also share the folder if available
+    if(orgConfig&&orgConfig.folderId&&orgConfig.folderId!=='root'){
+      try{
+        await apiFetch('https://www.googleapis.com/drive/v3/files/'+orgConfig.folderId+'/permissions'+(orgConfig.driveId?'?supportsAllDrives=true':''),{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            role:'writer',
+            type:'user',
+            emailAddress:email
+          })
+        });
+      }catch(e){/* folder share is best-effort */}
+    }
+  }catch(e){
+    console.error('Share failed',e);
+    showToast('ドライブ共有に失敗: '+e.message);
+  }
 }
 async function deleteMember(){var id=document.getElementById('member-edit-id').value;if(!id||!confirm('削除？'))return;var i=members.findIndex(function(m){return m.id===id});if(i>=0){try{await deleteRow('メンバー',i);members.splice(i,1);closeModal('member-modal');populateFilters();renderMembers();renderDashboard();showToast('削除')}catch(e){showToast('エラー: '+e.message)}}}
 
