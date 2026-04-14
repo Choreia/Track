@@ -630,8 +630,12 @@ async function loadConfig(){
   showView('loading');
   var q=getQ();
   // Direct link with sheet ID → go straight to project
-  if(q.s){orgConfig={spreadsheetId:q.s};try{await loadAllData();showView('main');applyQueryState();return}catch(e){console.error(e)}}
-  // No direct link → show project list
+  if(q.s){
+    orgConfig={spreadsheetId:q.s};
+    try{await loadAllData();showView('main');applyQueryState();return}
+    catch(e){console.error(e);showToast('プロジェクトの読み込みに失敗しました')}
+  }
+  // No direct link or load failed → show project list
   showView('projects');
   loadProjectList();
 }
@@ -641,8 +645,20 @@ async function loadProjectList(){
   grid.innerHTML='<div class="loading"><div class="spinner"></div><p style="margin-top:8px">プロジェクトを検索中...</p></div>';
   allProjects=[];
   try{
-    var res=await apiFetch("https://www.googleapis.com/drive/v3/files?q=name%3D'"+CONFIG_FILE_NAME+"'+and+trashed%3Dfalse&fields=files(id,name,modifiedTime,parents)&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives&pageSize=50&orderBy=modifiedTime desc");
-    var files=res.files||[];
+    // Try allDrives first, fallback to user corpus for personal accounts
+    var files=[];
+    try{
+      var res=await apiFetch("https://www.googleapis.com/drive/v3/files?q=name%3D'"+CONFIG_FILE_NAME+"'+and+trashed%3Dfalse&fields=files(id,name,modifiedTime,parents)&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives&pageSize=50&orderBy=modifiedTime desc");
+      files=res.files||[];
+    }catch(e){
+      // Fallback: personal drive only (no shared drives)
+      console.warn('allDrives search failed, falling back to user corpus',e);
+      try{
+        var res2=await apiFetch("https://www.googleapis.com/drive/v3/files?q=name%3D'"+CONFIG_FILE_NAME+"'+and+trashed%3Dfalse&fields=files(id,name,modifiedTime,parents)&pageSize=50&orderBy=modifiedTime desc");
+        files=res2.files||[];
+      }catch(e2){console.error('User corpus search also failed',e2)}
+    }
+
     // Load each config to get project details
     var promises=files.map(function(f){
       return apiFetch('https://www.googleapis.com/drive/v3/files/'+f.id+'?alt=media').then(function(cfg){
@@ -652,7 +668,7 @@ async function loadProjectList(){
     var configs=await Promise.all(promises);
     allProjects=configs.filter(Boolean);
 
-    // Now fetch quick stats for each project (task counts)
+    // Fetch quick stats for each project (task counts)
     var statsPromises=allProjects.map(function(cfg){
       if(!cfg.spreadsheetId)return Promise.resolve(null);
       return apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+cfg.spreadsheetId+'/values/'+encodeURIComponent('タスク!D2:D5000')).then(function(d){
@@ -665,7 +681,6 @@ async function loadProjectList(){
     renderProjectGrid(allProjects,allStats);
   }catch(e){
     console.error(e);
-    grid.innerHTML='<div class="empty-state"><div class="icon">📋</div><p>プロジェクトの読み込みに失敗しました</p></div>';
     renderProjectGrid([],[]);
   }
 }
