@@ -168,15 +168,15 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* Timeline / Gantt */
 .timeline-table{border-collapse:collapse;min-width:100%}
 .timeline-table th,.timeline-table td{padding:0;vertical-align:middle;white-space:nowrap}
-.timeline-header th{font-size:.65em;font-weight:600;color:#5a6a7a;text-align:center;padding:4px 0;border-bottom:1px solid #d0d8e0;min-width:36px}
+.timeline-header th{font-size:.65em;font-weight:600;color:#5a6a7a;text-align:center;padding:4px 0;border-bottom:1px solid #d0d8e0;min-width:var(--day-px,36px)}
 .timeline-header th.today{color:#1a5a8a;background:#e8f0ff}
 .timeline-header th.weekend{color:#b0b8c0;background:#f8f9fa}
 .timeline-row-label{position:sticky;left:0;background:#fff;z-index:2;padding:6px 12px 6px 0;font-size:.8em;font-weight:600;color:#1a2430;max-width:180px;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid #f0f4f8}
 .timeline-group-label{position:sticky;left:0;background:#f0f4f8;z-index:2;padding:8px 12px;font-size:.78em;font-weight:700;color:#3a4a5a;border-bottom:1px solid #d0d8e0;text-transform:uppercase;letter-spacing:.5px}
-.timeline-cell{border-bottom:1px solid #f0f4f8;height:32px;position:relative;min-width:36px}
+.timeline-cell{border-bottom:1px solid #f0f4f8;height:32px;position:relative;min-width:var(--day-px,36px)}
 .timeline-cell.today{background:#e8f0ff22}
 .timeline-cell.weekend{background:#f8f9fa}
-.timeline-bar{position:absolute;top:6px;height:20px;border-radius:4px;min-width:8px;cursor:pointer;transition:opacity .15s;display:flex;align-items:center;padding:0 6px;font-size:.65em;font-weight:600;color:#fff;overflow:hidden;white-space:nowrap}
+.timeline-bar{position:absolute;top:6px;height:20px;border-radius:4px;min-width:8px;cursor:pointer;transition:opacity .15s;display:flex;align-items:center;padding:0 6px;font-size:.65em;font-weight:600;color:#fff;overflow:hidden;white-space:nowrap;z-index:1}
 .timeline-bar:hover{opacity:.85}
 .timeline-bar.todo{background:#2563eb}.timeline-bar.in_progress{background:#d97706}.timeline-bar.review{background:#7c3aed}.timeline-bar.done{background:#059669}.timeline-bar.blocked{background:#dc2626}
 .timeline-milestone-marker{position:absolute;top:4px;width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-bottom:16px solid #1a5a8a;cursor:pointer;z-index:1}
@@ -214,6 +214,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div class="header">
     <h1><a href="https://choreia.github.io/" style="text-decoration:none;color:inherit"><span>Choreia</span></a> Track</h1>
     <div class="auth-area" id="auth-area">
+      <a href="https://choreia.github.io/Report/" target="_blank" rel="noopener" style="text-decoration:none;color:#1a5a8a;font-weight:700;border:1px solid #c0d0e0;border-radius:8px;padding:6px 12px">📝 報告 ↗</a>
       <img id="user-avatar" src="" alt="" style="display:none" onclick="toggleUserMenu()">
       <div class="user-menu" id="user-menu">
         <div class="user-menu-name" id="user-menu-name"></div>
@@ -294,6 +295,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       <button class="tab" data-tab="tasks" onclick="switchTab('tasks')">タスク</button>
       <button class="tab" data-tab="milestones" onclick="switchTab('milestones')">マイルストーン</button>
       <button class="tab" data-tab="wiki" onclick="switchTab('wiki')">Wiki</button>
+      <button class="tab" data-tab="materials" onclick="switchTab('materials')">資料</button>
       <button class="tab" data-tab="members" onclick="switchTab('members')">メンバー</button>
       <button class="tab" data-tab="timeline" onclick="switchTab('timeline')">タイムライン</button>
       <button class="tab" data-tab="ai" onclick="switchTab('ai')">AI PM</button>
@@ -352,6 +354,17 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
     </div>
 
+    <!-- Materials -->
+    <div id="panel-materials" style="display:none">
+      <div class="toolbar">
+        <input class="form-input" type="text" placeholder="ファイル名で検索..." id="material-search" oninput="renderMaterials()" style="flex:1;margin-bottom:0">
+        <button class="btn-icon" onclick="loadAndRenderMaterials()" title="更新">🔄</button>
+        <button class="btn-small" onclick="document.getElementById('material-upload-input').click()">+ アップロード</button>
+        <input type="file" id="material-upload-input" multiple style="display:none" onchange="uploadMaterials(this.files);this.value=''">
+      </div>
+      <div id="materials-container"></div>
+    </div>
+
     <!-- Members -->
     <div id="panel-members" style="display:none">
       <div class="toolbar">
@@ -371,6 +384,10 @@ textarea.form-input{resize:vertical;min-height:80px}
           <option value="status">ステータス別</option>
         </select>
         <div style="flex:1"></div>
+        <button class="btn-icon" onclick="timelineZoomOut()" title="縮小">−</button>
+        <span id="timeline-zoom-label" style="font-size:.75em;color:#5a6a7a;min-width:48px;text-align:center">100%</span>
+        <button class="btn-icon" onclick="timelineZoomIn()" title="拡大">+</button>
+        <button class="btn-icon" onclick="timelineZoomReset()" title="標準">⟲</button>
         <button class="btn-icon" onclick="timelineScrollLeft()" title="前へ">&larr;</button>
         <button class="btn-icon" onclick="timelineScrollRight()" title="次へ">&rarr;</button>
       </div>
@@ -528,8 +545,10 @@ var CONFIG_FILE_NAME='choreia-track-config.json';
 
 /* ═══ State ═══ */
 var accessToken='',currentUser=null,orgConfig=null,tokenClient=null;
-var tasks=[],milestones=[],wikiPages=[],members=[];
+var tasks=[],milestones=[],wikiPages=[],members=[],materials=[];
 var currentTab='dashboard',taskView='kanban',currentWikiId=null;
+var timelineDayPx=36;
+var materialsFolderId='',materialsLoaded=false;
 
 /* ═══ Schema ═══ */
 var TASK_FIELDS=['id','title','description','status','priority','assignee','dueDate','milestone','tags','createdAt','updatedAt'];
@@ -577,7 +596,7 @@ function copyWikiShareUrl(){if(currentWikiId)navigator.clipboard.writeText(build
 
 function applyQueryState(){
   var q=getQ();
-  if(q.tab&&['dashboard','tasks','milestones','wiki','members','timeline','ai'].indexOf(q.tab)>=0)switchTab(q.tab,true);
+  if(q.tab&&['dashboard','tasks','milestones','wiki','materials','members','timeline','ai'].indexOf(q.tab)>=0)switchTab(q.tab,true);
   if(q.v)setTaskView(q.v,true);
   if(q.m){var sel=document.getElementById('task-milestone-filter');if(sel)sel.value=q.m}
   if(q.q){var si=document.getElementById(currentTab==='wiki'?'wiki-search':'task-search');if(si)si.value=q.q}
@@ -589,7 +608,7 @@ function applyQueryState(){
 function showView(n){['welcome','loading','setup','main','projects'].forEach(function(v){document.getElementById('view-'+v).style.display=v===n?'':'none'})}
 function switchTab(tab,noUrl){
   currentTab=tab;if(!noUrl)setQ({tab:tab,id:'',q:''});
-  ['dashboard','tasks','milestones','wiki','members','timeline','ai'].forEach(function(t){
+  ['dashboard','tasks','milestones','wiki','materials','members','timeline','ai'].forEach(function(t){
     var te=document.querySelector('.tab[data-tab="'+t+'"]'),pe=document.getElementById('panel-'+t);
     if(te)te.classList.toggle('active',tab===t);if(pe)pe.style.display=tab===t?'':'none';
   });
@@ -597,6 +616,7 @@ function switchTab(tab,noUrl){
   if(tab==='tasks')renderTasks();
   if(tab==='milestones')renderMilestones();
   if(tab==='wiki'){closeWikiDetail();renderWikiList()}
+  if(tab==='materials'){if(materialsLoaded)renderMaterials();else loadAndRenderMaterials()}
   if(tab==='members')renderMembers();
   if(tab==='timeline')renderTimeline();
 }
@@ -741,7 +761,8 @@ function startNewProject(){
 }
 
 function backToProjects(){
-  orgConfig=null;tasks=[];milestones=[];wikiPages=[];members=[];
+  orgConfig=null;tasks=[];milestones=[];wikiPages=[];members=[];materials=[];
+  materialsFolderId='';materialsLoaded=false;
   setQ({s:'',tab:'',v:'',m:'',id:'',q:''});
   showView('projects');loadProjectList();
 }
@@ -778,6 +799,7 @@ async function selectThisFolder(){
 /* ═══ Data Loading ═══ */
 async function loadAllData(){
   var sid=getSheetId();if(!sid)return;
+  materials=[];materialsFolderId='';materialsLoaded=false;
   var _pn=(orgConfig&&orgConfig.projectName)||'プロジェクト';document.getElementById('project-name').innerHTML=escapeHtml(_pn)+'<span style="font-size:.7em;color:#5a6a7a">✏️</span>';
   var d=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'/values:batchGet?ranges='+encodeURIComponent('タスク!A2:K5000')+'&ranges='+encodeURIComponent('マイルストーン!A2:G5000')+'&ranges='+encodeURIComponent('Wiki!A2:H5000')+'&ranges='+encodeURIComponent('メンバー!A2:I5000'));
   var r=d.valueRanges||[];
@@ -1030,7 +1052,7 @@ function renderTimeline(){
   }
 
   // Render
-  var h='<div style="position:relative;overflow-x:auto" id="timeline-scroll">';
+  var h='<div style="position:relative;overflow-x:auto;--day-px:'+timelineDayPx+'px" id="timeline-scroll">';
   h+='<table class="timeline-table">';
 
   // Header row: months
@@ -1047,8 +1069,8 @@ function renderTimeline(){
     var isToday=ds===todayStr;
     var isWeekend=dow===0||dow===6;
     var cls='';if(isToday)cls='today';else if(isWeekend)cls='weekend';
-    var dayLabel=d.getDate();
-    h+='<th class="'+cls+'" title="'+ds+'">'+dayLabel+'</th>';
+    var dayLabel=timelineDayPx>=24?d.getDate():(d.getDate()%5===0||isToday?d.getDate():'');
+    h+='<th class="'+cls+'" title="'+ds+'" style="min-width:'+timelineDayPx+'px;width:'+timelineDayPx+'px">'+dayLabel+'</th>';
   });
   h+='</tr>';
 
@@ -1085,7 +1107,7 @@ function renderTimeline(){
         h+='<td class="'+cls+'">';
         if(i===startIdx){
           var span=endIdx-startIdx+1;
-          var widthPx=span*36;
+          var widthPx=span*timelineDayPx;
           h+='<div class="timeline-bar '+t.status+'" style="width:'+widthPx+'px" onclick="openTaskById(\''+t.id+'\')" title="'+escapeHtml(t.title)+' ('+escapeHtml(t.assignee||'')+')">'+escapeHtml(t.title)+'</div>';
         }
         h+='</td>';
@@ -1125,12 +1147,19 @@ function renderTimeline(){
   var scrollEl=document.getElementById('timeline-scroll');
   if(scrollEl){
     var todayIdx=-1;days.forEach(function(d,i){if(d.toISOString().substring(0,10)===todayStr)todayIdx=i});
-    if(todayIdx>3)scrollEl.scrollLeft=(todayIdx-3)*36;
+    if(todayIdx>3)scrollEl.scrollLeft=(todayIdx-3)*timelineDayPx;
   }
+
+  // Update zoom label
+  var zl=document.getElementById('timeline-zoom-label');
+  if(zl)zl.textContent=Math.round(timelineDayPx/36*100)+'%';
 }
 
-function timelineScrollLeft(){var el=document.getElementById('timeline-scroll');if(el)el.scrollLeft-=36*7}
-function timelineScrollRight(){var el=document.getElementById('timeline-scroll');if(el)el.scrollLeft+=36*7}
+function timelineScrollLeft(){var el=document.getElementById('timeline-scroll');if(el)el.scrollLeft-=timelineDayPx*7}
+function timelineScrollRight(){var el=document.getElementById('timeline-scroll');if(el)el.scrollLeft+=timelineDayPx*7}
+function timelineZoomIn(){timelineDayPx=Math.min(96,Math.round(timelineDayPx*1.25));renderTimeline()}
+function timelineZoomOut(){timelineDayPx=Math.max(8,Math.round(timelineDayPx/1.25));renderTimeline()}
+function timelineZoomReset(){timelineDayPx=36;renderTimeline()}
 
 /* ═══ Members ═══ */
 function renderMembers(){
@@ -1236,6 +1265,106 @@ async function shareDriveWithMember(email,sendNotification){
   }
 }
 async function deleteMember(){var id=document.getElementById('member-edit-id').value;if(!id||!confirm('削除？'))return;var i=members.findIndex(function(m){return m.id===id});if(i>=0){try{await deleteRow('メンバー',i);members.splice(i,1);closeModal('member-modal');populateFilters();renderMembers();renderDashboard();showToast('削除')}catch(e){showToast('エラー: '+e.message)}}}
+
+/* ═══ Materials ═══ */
+function fmtFileSize(b){b=parseInt(b,10)||0;if(b<1024)return b+'B';if(b<1024*1024)return(b/1024).toFixed(1)+'KB';if(b<1024*1024*1024)return(b/(1024*1024)).toFixed(1)+'MB';return(b/(1024*1024*1024)).toFixed(1)+'GB'}
+function mimeIcon(m){if(!m)return'📄';if(m.indexOf('image/')===0)return'🖼️';if(m.indexOf('video/')===0)return'🎬';if(m.indexOf('audio/')===0)return'🎵';if(m.indexOf('pdf')>=0)return'📕';if(m.indexOf('spreadsheet')>=0)return'📊';if(m.indexOf('presentation')>=0)return'📽️';if(m.indexOf('document')>=0||m.indexOf('msword')>=0||m.indexOf('wordprocessing')>=0)return'📝';if(m.indexOf('zip')>=0||m.indexOf('compressed')>=0||m.indexOf('archive')>=0)return'🗜️';if(m.indexOf('folder')>=0)return'📁';return'📄'}
+
+async function getOrCreateMaterialsFolderId(){
+  if(materialsFolderId)return materialsFolderId;
+  if(orgConfig&&orgConfig.materialsFolderId){materialsFolderId=orgConfig.materialsFolderId;return materialsFolderId}
+  var parent=(orgConfig&&orgConfig.folderId)||'root';
+  var sa=orgConfig&&orgConfig.driveId?'&supportsAllDrives=true&includeItemsFromAllDrives=true':'';
+  var q="name='資料' and mimeType='application/vnd.google-apps.folder' and '"+parent+"' in parents and trashed=false";
+  var res=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name)'+sa);
+  if(res.files&&res.files.length){materialsFolderId=res.files[0].id}
+  else{
+    var meta={name:'資料',mimeType:'application/vnd.google-apps.folder',parents:[parent]};
+    var createUrl='https://www.googleapis.com/drive/v3/files'+(orgConfig&&orgConfig.driveId?'?supportsAllDrives=true':'');
+    var created=await apiFetch(createUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(meta)});
+    materialsFolderId=created.id;
+  }
+  if(orgConfig){orgConfig.materialsFolderId=materialsFolderId;saveConfigToDrive()}
+  return materialsFolderId;
+}
+
+async function loadMaterials(){
+  var fid=await getOrCreateMaterialsFolderId();
+  var sa=orgConfig&&orgConfig.driveId?'&supportsAllDrives=true&includeItemsFromAllDrives=true':'';
+  var q="'"+fid+"' in parents and trashed=false";
+  var url='https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name,mimeType,size,modifiedTime,webViewLink,lastModifyingUser)&orderBy=modifiedTime desc&pageSize=200'+sa;
+  var r=await apiFetch(url);
+  materials=r.files||[];
+  materialsLoaded=true;
+}
+
+async function loadAndRenderMaterials(){
+  var c=document.getElementById('materials-container');
+  c.innerHTML='<div class="loading"><div class="spinner"></div><p style="margin-top:8px">読み込み中...</p></div>';
+  try{await loadMaterials();renderMaterials()}
+  catch(e){c.innerHTML='<p style="color:#dc2626;padding:20px">読み込みエラー: '+escapeHtml(e.message)+'</p>'}
+}
+
+function renderMaterials(){
+  var sq=(document.getElementById('material-search').value||'').toLowerCase();
+  var f=materials.filter(function(m){return!sq||m.name.toLowerCase().indexOf(sq)>=0});
+  if(!f.length){
+    document.getElementById('materials-container').innerHTML='<div class="empty-state"><div class="icon">📁</div><p>資料がありません</p><button class="btn-small" onclick="document.getElementById(\'material-upload-input\').click()">+ アップロード</button></div>';
+    return;
+  }
+  var h='<table class="data-table"><thead><tr><th></th><th>ファイル名</th><th>サイズ</th><th>更新日</th><th>更新者</th><th></th></tr></thead><tbody>';
+  f.forEach(function(m){
+    var size=m.size?fmtFileSize(m.size):'-';
+    var who=(m.lastModifyingUser&&m.lastModifyingUser.displayName)||'-';
+    var link=m.webViewLink||('https://drive.google.com/file/d/'+m.id+'/view');
+    h+='<tr>';
+    h+='<td style="font-size:1.2em">'+mimeIcon(m.mimeType)+'</td>';
+    h+='<td style="font-weight:600"><a href="'+escapeHtml(link)+'" target="_blank" rel="noopener" style="color:#1a2430;text-decoration:none">'+escapeHtml(m.name)+'</a></td>';
+    h+='<td>'+size+'</td>';
+    h+='<td>'+fmtDate(m.modifiedTime)+'</td>';
+    h+='<td>'+escapeHtml(who)+'</td>';
+    h+='<td><button class="btn-danger" onclick="deleteMaterial(\''+m.id+'\')">削除</button></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  document.getElementById('materials-container').innerHTML=h;
+}
+
+async function uploadMaterials(files){
+  if(!files||!files.length)return;
+  var fid;
+  try{fid=await getOrCreateMaterialsFolderId()}
+  catch(e){showToast('フォルダ取得失敗: '+e.message);return}
+  var sa=orgConfig&&orgConfig.driveId?'&supportsAllDrives=true':'';
+  var ok=0,ng=0;
+  for(var i=0;i<files.length;i++){
+    var file=files[i];
+    showToast('アップロード中... ('+(i+1)+'/'+files.length+') '+file.name);
+    try{
+      var meta={name:file.name,parents:[fid]};
+      var form=new FormData();
+      form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
+      form.append('file',file);
+      var r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'+sa,{method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:form});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      ok++;
+    }catch(e){ng++;console.error('Upload failed',file.name,e)}
+  }
+  await loadAndRenderMaterials();
+  showToast(ok+'件アップロード'+(ng?' / '+ng+'件失敗':''));
+}
+
+async function deleteMaterial(id){
+  if(!confirm('削除しますか？'))return;
+  var sa=orgConfig&&orgConfig.driveId?'?supportsAllDrives=true':'';
+  try{
+    var r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+sa,{method:'DELETE',headers:{'Authorization':'Bearer '+accessToken}});
+    if(!r.ok&&r.status!==204)throw new Error('HTTP '+r.status);
+    materials=materials.filter(function(m){return m.id!==id});
+    renderMaterials();
+    showToast('削除しました');
+  }catch(e){showToast('削除エラー: '+e.message)}
+}
 
 /* ═══ Gemini API ═══ */
 function getGeminiKey(){return(orgConfig&&orgConfig.geminiApiKey)||localStorage.getItem('choreia_track_gemini_key')||''}
