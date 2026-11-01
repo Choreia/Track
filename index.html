@@ -209,6 +209,32 @@ textarea.form-input{resize:vertical;min-height:80px}
   .member-card{flex-direction:column;align-items:center;text-align:center}
   .project-grid{grid-template-columns:1fr}
 }
+/* 時間割 (schedule) */
+.sched-layout{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:820px){.sched-layout{grid-template-columns:1fr 360px}}
+.sched-kanban{display:flex;flex-direction:column;gap:14px}
+.sk-sec .sk-h{font-size:.78em;font-weight:700;color:#3a4a5a;margin:0 0 6px;display:flex;justify-content:space-between}
+.sk-sec .sk-h .n{color:#9aa7b4;font-weight:400}
+.sk-cards{display:flex;flex-direction:column;gap:7px;min-height:10px;border:1px dashed transparent;border-radius:9px}
+.sk-cards.drop{border-color:#2563eb;background:#f0f6ff}
+.sk-card{background:#fff;border:1px solid #d0d8e0;border-left:4px solid #2563eb;border-radius:9px;padding:8px 10px;cursor:grab;box-shadow:0 1px 2px rgba(26,36,48,.05)}
+.sk-card:active{cursor:grabbing}.sk-card.dragging{opacity:.4}
+.sk-card .t{font-weight:600;font-size:.84em;line-height:1.35}
+.sk-card .m{display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap}
+.sk-badge{font-size:.66em;font-weight:700;border-radius:999px;padding:1px 8px}
+.sched-timeline{border:1px solid #e0e8f0;border-radius:12px;overflow:hidden;align-self:start}
+.ts-row{display:grid;grid-template-columns:50px 1fr;border-bottom:1px solid #eef2f6;min-height:44px}
+.ts-row:last-child{border-bottom:none}
+.ts-hr{font-family:ui-monospace,monospace;font-size:.72em;color:#5a6a7a;padding:6px 8px;border-right:1px solid #eef2f6;background:#f6f9fc;text-align:right}
+.ts-area{padding:5px;display:flex;flex-direction:column;gap:5px}
+.ts-area.drop{background:#e8f0fe}
+.ts-block{background:#e8f0fe;border:1px solid #2563eb;border-radius:8px;padding:6px 9px;cursor:grab;display:flex;gap:8px;align-items:flex-start}
+.ts-block:active{cursor:grabbing}.ts-block.dragging{opacity:.4}
+.ts-block .bt{flex:1;min-width:0}
+.ts-block .bt .t{font-weight:600;font-size:.82em;line-height:1.3}
+.ts-block .bt .tm{font-size:.68em;color:#1a5a8a;font-family:ui-monospace,monospace;margin-top:1px}
+.ts-block .x{border:none;background:none;color:#1a5a8a;cursor:pointer;font-size:.85em;padding:2px;border-radius:5px}
+.ts-block .x:hover{background:#fff}
 </style>
 </head>
 <body>
@@ -295,6 +321,7 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="tabs" id="main-tabs">
       <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">ダッシュボード</button>
       <button class="tab" data-tab="tasks" onclick="switchTab('tasks')">タスク</button>
+      <button class="tab" data-tab="schedule" onclick="switchTab('schedule')">時間割</button>
       <button class="tab" data-tab="milestones" onclick="switchTab('milestones')">マイルストーン</button>
       <button class="tab" data-tab="wiki" onclick="switchTab('wiki')">Wiki</button>
       <button class="tab" data-tab="materials" onclick="switchTab('materials')">資料</button>
@@ -325,6 +352,22 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
       <div id="tasks-kanban"></div>
       <div id="tasks-list" style="display:none"></div>
+    </div>
+
+    <!-- Schedule (時間割) -->
+    <div id="panel-schedule" style="display:none">
+      <div class="toolbar">
+        <label style="font-size:.85em;color:#3a4a5a;font-weight:600">日付</label>
+        <input class="form-input" type="date" id="sched-date" style="width:auto;padding:7px 10px" onchange="schedDate=this.value;renderSchedule()">
+        <span id="sched-daylabel" style="font-size:.8em;color:#5a6a7a"></span>
+        <div style="flex:1"></div>
+        <button class="btn-icon" onclick="clearSchedDay()" title="この日の時間割をクリア">クリア</button>
+      </div>
+      <p style="font-size:.8em;color:#5a6a7a;margin:0 0 12px">左のタスクを右の時間帯にドラッグして、明日のスケジュールを組みます。ブロックの ✕ でカンバンへ戻ります。</p>
+      <div class="sched-layout">
+        <div class="sched-kanban" id="sched-kanban"></div>
+        <div class="sched-timeline"><div id="sched-tl"></div></div>
+      </div>
     </div>
 
     <!-- Milestones -->
@@ -548,6 +591,7 @@ var CONFIG_FILE_NAME='choreia-track-config.json';
 /* ═══ State ═══ */
 var accessToken='',currentUser=null,orgConfig=null,tokenClient=null;
 var tasks=[],milestones=[],wikiPages=[],members=[],materials=[];
+var schedules=[],schedDate='',_schedEnsured={};
 var currentTab='dashboard',taskView='kanban',currentWikiId=null;
 var timelineDayPx=36;
 var materialsFolderId='',materialsLoaded=false;
@@ -557,6 +601,7 @@ var TASK_FIELDS=['id','title','description','status','priority','assignee','dueD
 var MS_FIELDS=['id','title','description','dueDate','status','createdAt','updatedAt'];
 var WIKI_FIELDS=['id','title','content','category','tags','author','createdAt','updatedAt'];
 var MEMBER_FIELDS=['id','name','email','roles','customRoles','capacity','memo','createdAt','updatedAt'];
+var SCHED_FIELDS=['id','taskId','date','hour','duration','updatedAt'];
 
 var TASK_STATUSES=[
   {key:'todo',label:'Todo',color:'#2563eb'},
@@ -598,7 +643,7 @@ function copyWikiShareUrl(){if(currentWikiId)navigator.clipboard.writeText(build
 
 function applyQueryState(){
   var q=getQ();
-  if(q.tab&&['dashboard','tasks','milestones','wiki','materials','members','timeline','ai'].indexOf(q.tab)>=0)switchTab(q.tab,true);
+  if(q.tab&&['dashboard','tasks','schedule','milestones','wiki','materials','members','timeline','ai'].indexOf(q.tab)>=0)switchTab(q.tab,true);
   if(q.v)setTaskView(q.v,true);
   if(q.m){var sel=document.getElementById('task-milestone-filter');if(sel)sel.value=q.m}
   if(q.q){var si=document.getElementById(currentTab==='wiki'?'wiki-search':'task-search');if(si)si.value=q.q}
@@ -610,12 +655,13 @@ function applyQueryState(){
 function showView(n){['welcome','loading','setup','main','projects'].forEach(function(v){document.getElementById('view-'+v).style.display=v===n?'':'none'})}
 function switchTab(tab,noUrl){
   currentTab=tab;if(!noUrl)setQ({tab:tab,id:'',q:''});
-  ['dashboard','tasks','milestones','wiki','materials','members','timeline','ai'].forEach(function(t){
+  ['dashboard','tasks','schedule','milestones','wiki','materials','members','timeline','ai'].forEach(function(t){
     var te=document.querySelector('.tab[data-tab="'+t+'"]'),pe=document.getElementById('panel-'+t);
     if(te)te.classList.toggle('active',tab===t);if(pe)pe.style.display=tab===t?'':'none';
   });
   if(tab==='dashboard')renderDashboard();
   if(tab==='tasks')renderTasks();
+  if(tab==='schedule')renderSchedule();
   if(tab==='milestones')renderMilestones();
   if(tab==='wiki'){closeWikiDetail();renderWikiList()}
   if(tab==='materials'){if(materialsLoaded)renderMaterials();else loadAndRenderMaterials()}
@@ -778,7 +824,7 @@ function startNewProject(){
 }
 
 function backToProjects(){
-  orgConfig=null;tasks=[];milestones=[];wikiPages=[];members=[];materials=[];
+  orgConfig=null;tasks=[];milestones=[];wikiPages=[];members=[];materials=[];schedules=[];
   materialsFolderId='';materialsLoaded=false;
   setQ({s:'',tab:'',v:'',m:'',id:'',q:''});
   showView('projects');loadProjectList();
@@ -824,6 +870,8 @@ async function loadAllData(){
   milestones=(r[1]&&r[1].values||[]).map(function(v){return fromRow(v,MS_FIELDS)});
   wikiPages=(r[2]&&r[2].values||[]).map(function(v){return fromRow(v,WIKI_FIELDS)});
   members=(r[3]&&r[3].values||[]).map(function(v){return fromRow(v,MEMBER_FIELDS)});
+  await ensureScheduleSheet(sid);
+  try{var sdr=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'/values/'+encodeURIComponent('時間割!A2:F5000'));schedules=(sdr.values||[]).map(function(v){return fromRow(v,SCHED_FIELDS)});}catch(e){schedules=[];}
   populateFilters();
 }
 
@@ -846,6 +894,81 @@ function populateFilters(){
 async function appendRow(sh,obj,f){await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+getSheetId()+'/values/'+encodeURIComponent(sh+'!A:ZZ')+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[toRow(obj,f)]})})}
 async function updateRow(sh,idx,obj,f){await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+getSheetId()+'/values/'+encodeURIComponent(sh+'!A'+(idx+2)+':ZZ'+(idx+2))+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[toRow(obj,f)]})})}
 async function deleteRow(sh,idx){var sid=getSheetId();var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'?fields=sheets.properties');var s=meta.sheets.find(function(x){return x.properties.title===sh});if(!s)return;await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:[{deleteDimension:{range:{sheetId:s.properties.sheetId,dimension:'ROWS',startIndex:idx+1,endIndex:idx+2}}}]})})}
+
+/* ═══ 時間割 (Schedule) ═══ */
+function todayISO(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function tomorrowISO(){var d=new Date();d.setDate(d.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+async function ensureScheduleSheet(sid){
+  if(_schedEnsured[sid])return;
+  try{
+    var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'?fields=sheets.properties');
+    var has=(meta.sheets||[]).some(function(s){return s.properties.title==='時間割'});
+    if(!has){
+      await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:'時間割'}}}]})});
+      await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'/values/'+encodeURIComponent('時間割!A1:F1')+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[SCHED_FIELDS]})});
+    }
+    _schedEnsured[sid]=true;
+  }catch(e){console.error('ensureScheduleSheet',e)}
+}
+async function addSchedule(taskId,date,hour){var o={id:genId('SC'),taskId:taskId,date:date,hour:String(hour),duration:'1',updatedAt:now()};schedules.push(o);try{await appendRow('時間割',o,SCHED_FIELDS)}catch(e){showToast('保存失敗: '+e.message)}return o}
+async function moveSchedule(o,hour){var i=schedules.findIndex(function(s){return s.id===o.id});if(i<0)return;o.hour=String(hour);o.updatedAt=now();schedules[i]=o;try{await updateRow('時間割',i,o,SCHED_FIELDS)}catch(e){showToast('保存失敗: '+e.message)}}
+async function removeSchedule(id){var i=schedules.findIndex(function(s){return s.id===id});if(i<0)return;try{await deleteRow('時間割',i)}catch(e){showToast('削除失敗: '+e.message);return}schedules.splice(i,1)}
+function skCardHTML(t){var sd=TASK_STATUSES.find(function(s){return s.key===t.status})||{label:'',color:'#2563eb'};return '<div class="sk-card" draggable="true" data-id="'+t.id+'" style="border-left-color:'+sd.color+'"><div class="t">'+escapeHtml(t.title)+'</div><div class="m"><span class="sk-badge" style="background:'+sd.color+'22;color:'+sd.color+'">'+sd.label+'</span>'+(t.assignee?'<span style="font-size:.7em;color:#5a6a7a">'+escapeHtml(t.assignee)+'</span>':'')+'</div></div>'}
+function renderSchedule(){
+  if(!schedDate)schedDate=tomorrowISO();
+  var di=document.getElementById('sched-date');if(di)di.value=schedDate;
+  var d=new Date(schedDate+'T00:00:00');var wd=['日','月','火','水','木','金','土'][isNaN(d)?0:d.getDay()];
+  var lbl=isNaN(d)?'':((d.getMonth()+1)+'/'+d.getDate()+'（'+wd+'）');if(schedDate===tomorrowISO())lbl+=' ＝明日';else if(schedDate===todayISO())lbl+=' ＝今日';
+  document.getElementById('sched-daylabel').textContent=lbl;
+  var daySched=schedules.filter(function(s){return s.date===schedDate});
+  var schedTaskIds={};daySched.forEach(function(s){schedTaskIds[s.taskId]=true});
+  var groups=TASK_STATUSES.filter(function(s){return s.key!=='done'});
+  var kh='';
+  groups.forEach(function(g){
+    var items=tasks.filter(function(t){return t.status===g.key&&!schedTaskIds[t.id]});
+    kh+='<div class="sk-sec"><div class="sk-h"><span>'+g.label+'</span><span class="n">'+items.length+'</span></div><div class="sk-cards" data-status="'+g.key+'">'+items.map(skCardHTML).join('')+'</div></div>';
+  });
+  document.getElementById('sched-kanban').innerHTML=kh||'<div style="color:#5a6a7a;font-size:.85em">タスクがありません。「タスク」タブで追加してください。</div>';
+  var th='';
+  for(var h=8;h<=20;h++){
+    var hh=(h<10?'0':'')+h, nh=((h+1)<10?'0':'')+(h+1);
+    var blocks=daySched.filter(function(s){return parseInt(s.hour,10)===h});
+    th+='<div class="ts-row"><div class="ts-hr">'+hh+':00</div><div class="ts-area" data-hour="'+h+'">'+blocks.map(function(s){var t=tasks.find(function(x){return x.id===s.taskId});var title=t?t.title:'(削除されたタスク)';return '<div class="ts-block" draggable="true" data-sid="'+s.id+'"><div class="bt"><div class="t">'+escapeHtml(title)+'</div><div class="tm">'+hh+':00–'+nh+':00</div></div><button class="x" title="カンバンへ戻す" onclick="removeSchedule(\''+s.id+'\').then(renderSchedule)">✕</button></div>'}).join('')+'</div></div>';
+  }
+  document.getElementById('sched-tl').innerHTML=th;
+  wireSchedDnD();
+}
+var schedDragTask=null,schedDragSid=null;
+function wireSchedDnD(){
+  document.querySelectorAll('#sched-kanban .sk-card').forEach(function(el){
+    el.addEventListener('dragstart',function(e){schedDragTask=el.dataset.id;schedDragSid=null;el.classList.add('dragging');e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',el.dataset.id)}catch(x){}});
+    el.addEventListener('dragend',function(){el.classList.remove('dragging')});
+  });
+  document.querySelectorAll('#sched-tl .ts-block').forEach(function(el){
+    el.addEventListener('dragstart',function(e){schedDragSid=el.dataset.sid;schedDragTask=null;el.classList.add('dragging');e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',el.dataset.sid)}catch(x){}});
+    el.addEventListener('dragend',function(){el.classList.remove('dragging')});
+  });
+  document.querySelectorAll('#sched-tl .ts-area').forEach(function(el){
+    el.addEventListener('dragover',function(e){e.preventDefault();el.classList.add('drop')});
+    el.addEventListener('dragleave',function(){el.classList.remove('drop')});
+    el.addEventListener('drop',function(e){e.preventDefault();el.classList.remove('drop');var hour=parseInt(el.dataset.hour,10);
+      if(schedDragSid){var s=schedules.find(function(x){return x.id===schedDragSid});if(s)moveSchedule(s,hour).then(renderSchedule);}
+      else if(schedDragTask){addSchedule(schedDragTask,schedDate,hour).then(renderSchedule);}
+      schedDragSid=null;schedDragTask=null;
+    });
+  });
+  document.querySelectorAll('#sched-kanban .sk-cards').forEach(function(el){
+    el.addEventListener('dragover',function(e){e.preventDefault();el.classList.add('drop')});
+    el.addEventListener('dragleave',function(){el.classList.remove('drop')});
+    el.addEventListener('drop',function(e){e.preventDefault();el.classList.remove('drop');if(schedDragSid){removeSchedule(schedDragSid).then(renderSchedule);schedDragSid=null;}});
+  });
+}
+function clearSchedDay(){
+  var ids=schedules.filter(function(s){return s.date===schedDate}).map(function(s){return s.id});
+  if(!ids.length){showToast('この日に予定はありません');return}
+  if(!confirm(schedDate+' の時間割をクリアしますか？'))return;
+  (function next(){if(!ids.length){renderSchedule();return}removeSchedule(ids.shift()).then(next)})();
+}
 
 /* ═══ Dashboard ═══ */
 function renderDashboard(){
