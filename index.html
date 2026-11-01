@@ -189,7 +189,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 .project-list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .project-list-header h2{font-size:1.2em;color:#1a2430}
 .project-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
-.project-card{background:#fff;border-radius:16px;padding:20px;box-shadow:0 1px 4px rgba(26,36,48,.06);cursor:pointer;transition:all .2s;border:2px solid transparent}
+.project-card{position:relative;background:#fff;border-radius:16px;padding:20px;box-shadow:0 1px 4px rgba(26,36,48,.06);cursor:pointer;transition:all .2s;border:2px solid transparent}
+.pj-del{position:absolute;top:10px;right:10px;border:none;background:transparent;color:#9aa7b4;cursor:pointer;font-size:1em;border-radius:8px;padding:4px 7px;line-height:1}
+.pj-del:hover{background:#fbeaea;color:#dc2626}
 .project-card:hover{border-color:#1a5a8a;box-shadow:0 4px 12px rgba(26,90,138,.12)}
 .project-card:active{transform:scale(.98)}
 .project-card .pj-name{font-weight:700;font-size:1.05em;margin-bottom:4px}
@@ -728,6 +730,7 @@ function renderProjectGrid(projects,stats){
     var drive=cfg.driveName||'マイドライブ';
     var modified=cfg._modifiedTime?fmtDate(cfg._modifiedTime):'';
     h+='<div class="project-card" onclick="openProject(\''+escapeHtml(cfg.spreadsheetId)+'\',' +i+')">';
+    h+='<button class="pj-del" title="このプロジェクトを削除" onclick="event.stopPropagation();deleteProject('+i+')">🗑</button>';
     h+='<div class="pj-name">📋 '+escapeHtml(name)+'</div>';
     h+='<div class="pj-meta">';
     if(drive)h+=escapeHtml(drive);
@@ -754,6 +757,20 @@ function openProject(sheetId,idx){
   setQ({s:sheetId});
   showView('loading');
   loadAllData().then(function(){showView('main');applyQueryState()}).catch(function(e){console.error(e);showToast('読み込みに失敗: '+e.message);showView('projects')});
+}
+
+async function deleteProject(i){
+  var cfg=allProjects[i];if(!cfg)return;
+  var name=cfg.projectName||'名称未設定';
+  if(!confirm('プロジェクト「'+name+'」を削除します。\nスプレッドシート（タスク・Wiki等すべて）と設定ファイルがGoogleドライブのゴミ箱に入ります。\n元に戻すにはドライブのゴミ箱から復元してください。\n\n削除しますか？'))return;
+  var okCfg=false,okSS=false;
+  try{if(cfg._fileId){await apiFetch('https://www.googleapis.com/drive/v3/files/'+cfg._fileId+'?supportsAllDrives=true',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({trashed:true})});okCfg=true;}}catch(e){console.error('trash config',e);}
+  try{if(cfg.spreadsheetId){await apiFetch('https://www.googleapis.com/drive/v3/files/'+cfg.spreadsheetId+'?supportsAllDrives=true',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({trashed:true})});okSS=true;}}catch(e){console.error('trash sheet',e);}
+  // 開いているプロジェクトを消した場合はキャッシュも消す
+  try{var cached=JSON.parse(localStorage.getItem('choreia_track_config_cache')||'null');if(cached&&cached.spreadsheetId===cfg.spreadsheetId)localStorage.removeItem('choreia_track_config_cache');}catch(e){}
+  if(okCfg||okSS)showToast('「'+name+'」を削除しました'+(okSS?'':'（スプレッドシートは削除できず・権限を確認）'));
+  else showToast('削除できませんでした（権限を確認してください）');
+  loadProjectList();
 }
 
 function startNewProject(){
