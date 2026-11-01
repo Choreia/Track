@@ -670,13 +670,34 @@ function switchTab(tab,noUrl){
 }
 
 /* ═══ API ═══ */
-async function apiFetch(url,opts){opts=opts||{};opts.headers=opts.headers||{};opts.headers['Authorization']='Bearer '+accessToken;var r=await fetch(url,opts);if(!r.ok){var t='';try{t=JSON.stringify(await r.json())}catch(e){}throw new Error('API '+r.status+' '+t)}return r.json()}
+var _trkRefresh=null,_trkResolver=null;
+function refreshToken(){
+  if(_trkRefresh)return _trkRefresh;
+  if(!tokenClient)return Promise.reject(new Error('no tokenClient'));
+  _trkRefresh=new Promise(function(res,rej){_trkResolver={res:res,rej:rej};try{tokenClient.requestAccessToken({prompt:''})}catch(e){_trkResolver=null;rej(e)}});
+  _trkRefresh.catch(function(){}).then(function(){_trkRefresh=null});
+  return _trkRefresh;
+}
+async function apiFetch(url,opts){
+  opts=opts||{};opts.headers=opts.headers||{};opts.headers['Authorization']='Bearer '+accessToken;
+  var r=await fetch(url,opts);
+  if(r.status===401){
+    try{await refreshToken();}catch(e){throw new Error('API 401 (トークン更新に失敗)');}
+    opts.headers['Authorization']='Bearer '+accessToken;
+    r=await fetch(url,opts);
+  }
+  if(!r.ok){var t='';try{t=JSON.stringify(await r.json())}catch(e){}throw new Error('API '+r.status+' '+t)}
+  return r.json();
+}
 function getSheetId(){var q=getQ();return q.s||(orgConfig?orgConfig.spreadsheetId:'')}
 
 /* ═══ Auth ═══ */
 function initGIS(){tokenClient=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:onTokenResponse})}
 function handleSignIn(){tokenClient.requestAccessToken()}
-function onTokenResponse(r){if(r.error)return;accessToken=r.access_token;localStorage.setItem('choreia_track_token',accessToken);loadUserInfo()}
+function onTokenResponse(r){
+  if(_trkResolver){var rv=_trkResolver;_trkResolver=null;if(r.error){rv.rej(new Error(r.error));return}accessToken=r.access_token;localStorage.setItem('choreia_track_token',accessToken);rv.res(accessToken);return}
+  if(r.error)return;accessToken=r.access_token;localStorage.setItem('choreia_track_token',accessToken);loadUserInfo()
+}
 function handleSignOut(){accessToken='';currentUser=null;orgConfig=null;localStorage.removeItem('choreia_track_token');localStorage.removeItem('choreia_track_config_cache');showView('welcome');document.getElementById('user-avatar').style.display='none'}
 async function loadUserInfo(){
   try{
