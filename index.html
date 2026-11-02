@@ -873,7 +873,8 @@ async function selectThisFolder(){
     var cfgMeta={name:CONFIG_FILE_NAME,mimeType:'application/json'};
     if(setupFolderId&&setupFolderId!=='root')cfgMeta.parents=[setupFolderId];
     var form=new FormData();form.append('metadata',new Blob([JSON.stringify(cfgMeta)],{type:'application/json'}));form.append('file',new Blob([JSON.stringify(cfg)],{type:'application/json'}));
-    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'+(setupDriveId?'&supportsAllDrives=true':''),{method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:form});
+    var up=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'+(setupDriveId?'&supportsAllDrives=true':''),{method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:form});
+    if(!up.ok){var ut='';try{ut=(await up.json()).error.message;}catch(e){}throw new Error('設定ファイルを保存できませんでした('+up.status+' '+ut+')。スプレッドシートは作成済みです: '+ssId);} // 2026-11-02 失敗を握りつぶすと一覧に出ない幽霊プロジェクトになる
     orgConfig=cfg;localStorage.setItem('choreia_track_config_cache',JSON.stringify(cfg));setQ({s:ssId});
     tasks=[];milestones=[];wikiPages=[];members=[];
     showView('main');renderDashboard();showToast('プロジェクトを作成しました');
